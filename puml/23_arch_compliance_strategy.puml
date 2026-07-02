@@ -1,0 +1,149 @@
+@startuml 23_Arch_Compliance_Strategy
+!theme plain
+title DRE 3D Framework -- Architecture Compliance & Enforcement Strategy
+
+skinparam backgroundColor #FAFAFA
+skinparam defaultFontName Segoe UI
+skinparam defaultFontSize 10
+skinparam rectangle {
+  RoundCorner 8
+  BorderColor #90A4AE
+}
+skinparam note {
+  BackgroundColor #FFFDE7
+  BorderColor #F9A825
+}
+skinparam arrow {
+  Color #546E7A
+  FontSize 9
+}
+
+top to bottom direction
+
+' =============================================================
+' ARCHITECTURE AS CODE LAYER
+' =============================================================
+rectangle "Architecture as Code\n(Single Source of Truth)" as AAC #E3F2FD {
+  rectangle "PUML Diagrams\n(22 diagrams)\nVisual architecture\nSource of human truth" as PUML #BBDEFB
+  rectangle "architecture_spec.yaml\nMachine-readable spec\nTable names, SQL rules\nCRAG params, DRRI def\nAgent hierarchy\nApproval rules" as SPEC #BBDEFB
+  rectangle "ADR Registry\n(Architecture Decision\nRecords)\nWhy decisions were made\nWhen to revisit" as ADR #BBDEFB
+}
+
+PUML <-right-> SPEC  : must stay\nin sync
+SPEC <-right-> ADR   : changes need\nADR reference
+
+' =============================================================
+' 4-LAYER ENFORCEMENT PYRAMID
+' =============================================================
+rectangle "Layer 1 -- Developer (pre-commit, instant feedback)" as L1 #C8E6C9 {
+  rectangle "architecture-compliance hook\nScans changed .py files\nagainst architecture_spec.yaml\nFails commit on ERROR findings" as PC1 #A5D6A7
+  rectangle "spec-sync guard hook\nBlocks architecture_spec.yaml\nchange without companion\nPUML diagram update" as PC2 #A5D6A7
+  rectangle "flake8 + black + pyupgrade\nCode style & quality\n(existing hooks)" as PC3 #A5D6A7
+}
+
+rectangle "Layer 2 -- CI/CD (per pull request)" as L2 #FFF9C4 {
+  rectangle "pytest test_architecture_compliance.py\nSpec integrity checks\nException registry validation\nFull source scan\nJUnit XML artifact" as CI1 #FFF176
+  rectangle "make arch-compliance\nStandalone compliance target\nRuns before main test suite\nBlocks merge on failure" as CI2 #FFF176
+  rectangle "make test\nApplication test suite\n(existing)\nCoverage + SonarQube" as CI3 #FFF176
+}
+
+rectangle "Layer 3 -- Continuous (SonarQube)" as L3 #FFE0B2 {
+  rectangle "sonar-project.properties\nCode quality gate\nSecurity hotspots\nDuplicate detection\nCoverage threshold" as SQ1 #FFCC80
+  rectangle "Custom quality gate\nArch compliance score\n= exceptions / total findings\nTarget: < 5% unregistered" as SQ2 #FFCC80
+}
+
+rectangle "Layer 4 -- Governance (periodic review)" as L4 #FCE4EC {
+  rectangle "Monthly Tech-Debt Review\nExpired exceptions\nTECHNICAL_DEBT items\nException count trend" as GOV1 #F8BBD0
+  rectangle "Quarterly Arch Review\nSpec vs reality audit\nNew PUML updates needed\nADR backlog review" as GOV2 #F8BBD0
+  rectangle "Exception Registry\n(arch_compliance/exceptions.yaml)\n4 types: INTENTIONAL_DEVIATION\nTECHNICAL_DEBT\nARCH_UPDATE_NEEDED\nWONT_FIX" as EXC #F8BBD0
+}
+
+' =============================================================
+' DEVIATION DECISION TREE
+' =============================================================
+rectangle "Deviation Found" as DEV #EF9A9A
+
+rectangle "Decision Tree" as DT #FAFAFA {
+  rectangle "Is it a bug in the code?\n-> Fix code now\n   Remove from exception reg" as DT1 #FFCDD2
+  rectangle "Is the architecture wrong?\n-> Update PUML + spec\n   Raise ADR\n   Type: ARCH_UPDATE_NEEDED" as DT2 #FFE0B2
+  rectangle "Is it a justified tradeoff?\n-> Log INTENTIONAL_DEVIATION\n   Get Tech Lead sign-off\n   No expiry needed" as DT3 #FFF9C4
+  rectangle "Is it tech debt?\n-> Log TECHNICAL_DEBT\n   Add ticket_ref + expires_at\n   Review in monthly sprint" as DT4 #E8F5E9
+  rectangle "Is it a governance decision?\n-> Log WONT_FIX\n   Get Architecture Board approval\n   Renew annually" as DT5 #E3F2FD
+}
+
+DEV -down-> DT
+DT  -down-> DT1
+DT  -down-> DT2
+DT  -down-> DT3
+DT  -down-> DT4
+DT  -down-> DT5
+
+' =============================================================
+' FLOWS
+' =============================================================
+AAC    -down-> L1 : spec drives\npre-commit rules
+L1     -down-> L2 : commit triggers\nCI pipeline
+L2     -down-> L3 : PR merge triggers\nSonarQube scan
+L3     -down-> L4 : ongoing monitoring\n+ periodic review
+L4     -right-> EXC : exceptions managed\nand audited
+EXC  ..up..>  SPEC : approved deviations\nfeed back into spec updates
+
+' =============================================================
+' WHAT EACH LAYER CATCHES
+' =============================================================
+note right of L1
+  Pre-commit catches (fast, local):
+  - Forbidden SQL keywords in new code
+  - Unregistered table references
+  - Wrong CRAG threshold values
+  - check_type not in catalogue
+  - DRRI target changed without ADR
+  - Spec changed without PUML update
+end note
+
+note right of L2
+  CI/CD catches (per PR):
+  - All pre-commit checks (belt+braces)
+  - Expired exceptions blocking merge
+  - Missing ticket_ref on TECHNICAL_DEBT
+  - Source diagrams deleted/renamed
+  - Spec integrity violations
+  - Full source tree scan (not just diff)
+end note
+
+note right of L3
+  SonarQube catches (continuous):
+  - Security hotspots in any new code
+  - Code duplication across agent layers
+  - Test coverage drops below threshold
+  - Complexity exceeding component limits
+  - Long-term trend in exception count
+end note
+
+note right of L4
+  Governance catches (periodic):
+  - Tech debt exceptions not fixed in time
+  - Architecture drifting from diagrams
+  - New capability not backed by spec entry
+  - Agent hierarchy violations in production
+  - DRRI metric definition drift
+end note
+
+legend
+  <b>Architecture Compliance -- Core Principle</b>
+  -----------------------------------------------
+  Architecture as Code: the spec is the law.
+  Diagrams are the explanation. Code is the implementation.
+  All three must stay in sync.
+
+  <b>The golden rule:</b>
+  Never change code to deviate from architecture silently.
+  Always choose one of: fix code | update spec+PUML | register exception.
+
+  <b>Compliance is NOT a one-time gate</b>
+  It is continuous enforcement at every commit, every PR,
+  every merge, and every quarterly review. Exceptions are
+  debt, not permissions. They expire and must be renewed.
+endlegend
+
+@enduml

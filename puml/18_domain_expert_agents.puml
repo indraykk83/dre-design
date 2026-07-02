@@ -1,0 +1,110 @@
+@startuml 18_Domain_Expert_Agents
+!theme plain
+title DRE 3D Framework -- D3 Domain Expert Agents\n12 Agents . 5 Domain Categories . Auto-Fix with Human-in-Loop Review
+
+skinparam backgroundColor #FAFAFA
+skinparam sequence {
+  ArrowColor #546E7A
+  ActorBorderColor #263238
+  LifeLineBorderColor #B0BEC5
+  ParticipantBorderColor #90A4AE
+  ParticipantBackgroundColor #ECEFF1
+  BoxBorderColor #CFD8DC
+}
+skinparam note {
+  BackgroundColor #FFF8E1
+  BorderColor #FFB300
+  FontColor #4E342E
+  FontSize 10
+}
+
+participant "D3 Approval Gate\n(human sign-off)" as Gate
+participant "Domain Router\n(selects agent\nby domain tag)" as Router
+participant "Domain Expert Agent\n(selected instance)" as Agent
+participant "Data Pipeline\n(upstream job\nor transform)" as Pipeline
+database "Target Domain Table\n(Delta Lake)"          as Table
+participant "D1 ANOMALY_DETECTION_JOB\n(re-validation)" as D1
+database "DIGITAL_DATA_ANOMALIES\n(Delta)"            as ADB
+database "table_daily_metrics\n(Delta)"               as MDB
+participant "Notification Service\n(Email / Jira)"       as Notify
+
+note right of Gate
+  12 Domain Expert Agents (source: DRE.pptx slide 6):
+  Consumer Engagement : adiClub, CRM, Consumer Service, NPS
+  Marketing & Traffic : Clickstream, Affiliate, Paid Search, SEO
+  Sales               : DTC Sales
+  Payments            : Payments
+  Metadata            : Metadata Agent
+  Trading             : Trading Agent
+  All agents share the same 4-step execution protocol.
+  Each agent owns its domain fix logic + pipeline knowledge.
+end note
+
+== [1] Prescription Routing (D3 handover) ==
+
+Gate -> Router : Approved prescription token\n{domain_tag, table, fix_steps[],\n severity, blast_radius, owner, jira_id}
+activate Router
+
+note right of Router
+  Domain tag -> Agent mapping:
+  consumer_engagement -> adiClub / CRM / Consumer Service / NPS
+  marketing_traffic   -> Clickstream / Affiliate / Paid Search / SEO
+  sales               -> DTC Sales Agent
+  payments            -> Payments Data Agent
+  metadata            -> Metadata Agent
+  trading             -> Trading Agent
+end note
+
+Router -> Agent : Dispatch to matched domain agent\n{fix_steps[], target_table,\n domain_context, owner}
+activate Agent
+
+== [2] Step 1 -- Auto-Fix with Human Review Gate ==
+
+Agent -> Table : Apply fix per prescription.steps[]\n(UPDATE / DELETE / BACKFILL / REPROCESS\nas defined by Playbook Compiler JSON recipe)
+activate Table
+Table --> Agent : {rows_affected, fix_ts, table_version}
+deactivate Table
+
+Agent -> Notify : Human review request\n{fix_applied, rows_affected,\n sample_preview[], owner, jira_id}
+activate Notify
+Notify --> Agent : APPROVED\n(owner click-to-approve via Jira / Email)
+deactivate Notify
+
+== [3] Step 2 -- Pipeline Enhancement (prevent recurrence) ==
+
+Agent -> Pipeline : Patch upstream job or transform logic\n(e.g. add null guard, fix partition filter,\n correct join key, fix SLA window)
+activate Pipeline
+Pipeline --> Agent : {patch_id, job_version, config_updated}
+deactivate Pipeline
+
+== [4] Step 3 -- End-to-End Testing ==
+
+Agent -> D1 : Re-run original failing DQ assertion\n(trigger targeted ANOMALY_DETECTION_JOB\nfor this config_id only)
+activate D1
+D1 -> Table : Execute DQ check (SELECT-only)
+Table --> D1 : {result: PASS|FAIL, violation_rate}
+D1 --> Agent : {validation_result, check_execution_log_id}
+deactivate D1
+
+alt Validation FAIL -- fix did not fully resolve issue
+  Agent -> Notify : Escalate: auto-fix insufficient\n(owner + Tech Lead alerted)
+  Agent -> Router : Return to D2 for deeper root-cause\n(re-enter Segment Slicer / Playbook Compiler)
+else Validation PASS -- fix confirmed
+  Agent -> ADB : UPDATE DIGITAL_DATA_ANOMALIES\nSET diagnosis_status = 'RESOLVED'\n    fix_applied      = fix_description\n    resolved_at      = NOW()\n    resolved_by_agent = domain_agent_name\nWHERE anomaly_id = ?
+  Agent -> MDB : UPSERT table_daily_metrics\n(refresh EWMA baseline post-fix\nso next D1 run uses corrected reference point)
+end
+
+== [5] Step 4 -- Production Release Plan ==
+
+Agent -> Notify : Release notification\n{fix_summary, validation_evidence,\n pipeline_patch_id, prod_promotion_ts,\n jira_closure, owner_sign_off}
+activate Notify
+Notify --> Agent : {Email delivered, Jira ticket CLOSED}
+deactivate Notify
+
+Agent --> Router : Execution report\n{status: RESOLVED|ESCALATED,\n fix_id, domain, duration_sec,\n rows_repaired, pipeline_patched}
+deactivate Agent
+
+Router --> Gate : Domain agent complete\n{domain, agent_used, outcome, jira_id}
+deactivate Router
+
+@enduml

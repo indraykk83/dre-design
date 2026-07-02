@@ -1,0 +1,89 @@
+@startuml 27_frontend_orchestration_layer
+!theme plain
+title Databricks-Native DQ Platform -- Frontend & Orchestration Layer
+
+skinparam rectangle {
+  BackgroundColor #E3F2FD
+  BorderColor #1565C0
+  RoundCorner 10
+}
+skinparam database {
+  BackgroundColor #E8F5E9
+  BorderColor #2E7D32
+}
+
+actor "Data Engineer\nBusiness Analyst\nProduct Owner" as User
+
+package "Databricks Apps (Frontend)" {
+  rectangle "Chatbot UI" as UI {
+    component "Streamlit/Gradio\nConversational Interface" as ChatUI
+    component "Approval Dashboard" as ApprovalUI
+    component "Incident Timeline" as IncidentUI
+  }
+  
+  rectangle "Observability UI" as ObsUI {
+    component "Tool Call Trace" as ToolTrace
+    component "Retrieval Quality" as RetrievalQuality
+    component "Auto-Fix Success Rate" as AutoFixMetrics
+  }
+}
+
+package "Databricks App Backend (Orchestration)" {
+  rectangle "LangGraph Orchestrator" as LangGraph {
+    component "Intent Router" as IntentRouter
+    component "State Manager" as StateManager
+    component "Tool Coordinator" as ToolCoordinator
+  }
+  
+  rectangle "Interactive Agents" as Agents {
+    component "Retrieval Agent" as RetrievalAgent
+    component "Log Analysis Agent" as LogAgent
+    component "SQL Generator Agent" as SQLAgent
+    component "Diagnosis Agent" as DiagAgent
+    component "Recommendation Agent" as RecommendAgent
+  }
+  
+  rectangle "Tool / MCP Adapter Layer" as ToolLayer {
+    component "Jira API" as JiraAPI
+    component "GitHub API" as GitHubAPI
+    component "Confluence API" as ConfluenceAPI
+    component "Databricks Jobs API" as JobsAPI
+  }
+}
+
+rectangle "Mosaic AI Model Serving" as AI {
+  component "LLM Endpoint\n(Intent/SQL/Reasoning)" as LLM
+  component "Embedding Endpoint\n(BGE-M3)" as Embed
+}
+
+database "Session State\n(Delta Tables)" as SessionDB {
+  component "agent_session_log"
+  component "tool_call_log"
+}
+
+User --> ChatUI : Natural language query
+ChatUI --> LangGraph : User message
+LangGraph --> IntentRouter : Route
+IntentRouter --> Agents : Invoke agents
+Agents --> LLM : Inference calls
+Agents --> ToolLayer : External calls
+ToolLayer --> SessionDB : Audit
+LangGraph --> StateManager : Manage state
+StateManager --> SessionDB : Persist
+LangGraph --> ChatUI : Response
+
+note right of LangGraph
+  <b>A2A Communication:</b>
+  Agents communicate via
+  LangGraph shared state,
+  not peer-to-peer.
+end note
+
+note bottom of ToolLayer
+  <b>MCP Strategy:</b>
+  Phase 1: REST adapters
+  Phase 2: MCP gateway
+  if standardization needed
+end note
+
+@enduml

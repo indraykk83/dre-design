@@ -1,0 +1,164 @@
+@startuml 00_System_Overview
+!theme plain
+title 3D Data Quality Framework  |  System Overview
+
+skinparam backgroundColor #FAFAFA
+skinparam linetype ortho
+skinparam defaultFontName Arial
+skinparam defaultFontSize 11
+
+skinparam rectangle {
+  RoundCorner 12
+  BorderColor #90A4AE
+  FontSize 11
+}
+skinparam database {
+  BackgroundColor #E3F2FD
+  BorderColor #1565C0
+  FontSize 10
+}
+skinparam arrow {
+  Color #546E7A
+  FontSize 9
+  Thickness 1.5
+}
+skinparam package {
+  BorderColor #B0BEC5
+  BackgroundColor #FFFFFF
+  FontSize 10
+}
+
+top to bottom direction
+
+' ==================================================
+' ROW 0 -- USERS
+' ==================================================
+
+rectangle "Stakeholders" as USERS #FFF3E0 {
+  actor "Data Engineers  |  Business Analysts  |  Product Owners  |  Tech Leads  |  DataOps  |  Data Governance" as USR
+}
+
+' ==================================================
+' ROW 1 -- SELF-SERVICE RULE CAPTURE
+' ==================================================
+
+rectangle "Self-Service Rule Capture  (Databricks Genie Space + DQ Backend App)" as CAPTURE #E8F5E9 {
+
+  rectangle "Conversational Agent\n(Genie Space)\nNL Q&A  |  Rule proposal\nCoverage gaps  |  KPI lookup" as GENIE #C5CAE9
+
+  rectangle "Rule Authoring Pipeline\n(DQ Backend App)\nRAG Retriever  >  SQL Generator  >  Security Guard\nSQL Validator  >  Duplicate Detector  >  Trend Scorer\nRule Submitter  >  Approval Gateway\nCheck Suggestion Resolver (cache + schema gate)" as AUTHORING #C8E6C9
+
+  rectangle "LLM Engine\n(Mosaic AI Model Serving)\nIntent classification\nSQL generation\nTrend scoring" as LLM #DCEDC8
+}
+
+' ==================================================
+' ROW 2 -- SHARED KNOWLEDGE + STORAGE
+' ==================================================
+
+rectangle "RAG Knowledge Base\n(Databricks Vector Search + UC Volumes)\ndata_contracts/  |  supported_checks/\nsql_patterns/  |  examples/  |  domain_glossary/" as RAG #EDE7F6
+
+rectangle "Rule & Metric Store  (Unity Catalog -- Delta Tables)" as STORE #E3F2FD {
+  database "anomaly_check_config\n(Rule Registry)" as RuleDB
+  database "check_suggestions_cache\n(table_fqn + schema_version)" as SuggestCache
+  database "table_daily_metrics\n(Baselines + EWMA)" as MetricsDB
+  database "DIGITAL_DATA_ANOMALIES\n(Anomaly Events)" as AnomDB
+  database "check_execution_log\n(Run History)" as ExecLog
+}
+
+' ==================================================
+' ROW 3 -- DRE 3D EXECUTION FRAMEWORK
+' ==================================================
+
+rectangle "DRE 3D Execution Framework  (Databricks Workflows + Apps)" as DRE #E3F2FD {
+
+  rectangle "D1  DETECTION\n(Anomaly Detection Engine)\nProfiler  |  Baseline Learner\nCheck Dispatcher (9 paths)\nAlert Manager\n[KPI: DRRI]" as D1 #FFCDD2
+
+  rectangle "D2  DIAGNOSIS\nDrift Classifier  |  Lineage Tracer\nSegment Slicer  |  Evidence Retriever\nPlaybook Compiler  |  Prescription Router\nEvidence: job logs / DESCRIBE HISTORY /\nrunbooks (Confluence+UC) / GitHub / ITSM\n[Output: JSON execution recipe]" as D2 #F8BBD0
+
+  rectangle "D3  DEFLECTION\nState Validator  |  Circuit Breaker\nApproval Gate  |  Domain Executors (x12)\nadiClub / CRM / Clickstream / DTC Sales\nPayments / Trading / Metadata / NPS ...\n[Output: Fix + verify + feedback to D1]" as D3 #EDE7F6
+}
+
+' ==================================================
+' ROW 4 -- NOTIFICATIONS + OUTCOMES
+' ==================================================
+
+rectangle "Notifications\n(Email  |  Jira  |  Databricks In-App)" as NOTIF #FFF9C4
+
+rectangle "Business Outcomes\nDRRI > 95%  |  MTTD 48h -> 4-8h\nSLA 60% -> 88%  |  40% toil reduction\n3,032 tables  |  11% -> 90%+ coverage" as OUTCOMES #E8F5E9
+
+' ==================================================
+' HIDDEN LAYOUT ANCHORS
+' ==================================================
+
+USERS    -[hidden]down-> CAPTURE
+CAPTURE  -[hidden]down-> RAG
+CAPTURE  -[hidden]down-> STORE
+RAG      -[hidden]right-> STORE
+STORE    -[hidden]down-> DRE
+DRE      -[hidden]down-> NOTIF
+DRE      -[hidden]down-> OUTCOMES
+NOTIF    -[hidden]right-> OUTCOMES
+
+' ==================================================
+' FLOWS
+' ==================================================
+
+USR       -down->   GENIE     : Natural language request / Q&A
+GENIE     -right->  AUTHORING : WRITE or table-suggestion intent
+AUTHORING -right->  LLM       : SQL generation + scoring
+
+AUTHORING -down->   RAG       : embed_and_search (BGE-M3, top-k=8)
+AUTHORING -down->   SuggestCache : cache lookup / upsert
+AUTHORING -down->   RuleDB    : INSERT approved rule
+AUTHORING -down->   ExecLog   : audit record
+
+RuleDB    -down->   D1        : read active configs
+MetricsDB -down->   D1        : load EWMA baselines
+D1        -down->   AnomDB    : write anomaly event (PENDING)
+D1        -down->   ExecLog   : PASS / FAIL / ERROR / TIMEOUT
+D1        -right->  D2
+D2        -right->  D3
+D3        -down->   MetricsDB : update EWMA baselines
+D3        -down->   NOTIF     : violation alerts / approval requests
+D1        ..>       NOTIF     : alert on breach
+ExecLog   ..>       OUTCOMES  : KPI feed (DRRI, MTTD, SLA %)
+
+note as OverviewGuide
+  <b>How to read this diagram</b>
+  ---------------------------------------------------------
+  <b>TOP ROW</b> -- Who interacts:
+  Data Engineers and BAs author rules via Genie Space.
+  Product Owners and Tech Leads approve. DataOps monitors.
+
+  <b>CAPTURE LAYER</b> -- How rules are created:
+  NL request -> LLM intent parse -> CRAG-gated RAG retrieval
+  (BGE-M3 embeddings, top-k=8, confidence gate)
+  -> SQL generation -> Security Guard -> Validator
+  -> Duplicate Detector -> Trend Score -> Approval Gateway.
+  Result: a governed, versioned rule in anomaly_check_config.
+
+  <b>DETECTION (D1)</b> -- How anomalies are found:
+  ANOMALY_DETECTION_JOB reads only rules linked to this job.
+  Executes SELECT checks on UC Delta tables.
+  Z-score, volume, freshness, null-rate, behavioral patterns.
+  Anomaly events written to DIGITAL_DATA_ANOMALIES.
+
+  <b>DIAGNOSIS (D2)</b> -- How root cause is found:
+  Drift Classifier maps to failure taxonomy.
+  Lineage Tracer finds Patient Zero upstream.
+  Segment Slicer isolates exact micro-segment.
+  Playbook Compiler outputs JSON remediation recipe.
+
+  <b>DEFLECTION (D3)</b> -- How issues are contained:
+  Circuit Breaker pauses risky downstream jobs.
+  Domain Executor agents retrigger pipelines.
+  Verification confirms recovery. DRRI updated.
+  Notifications sent (P1 Jira + email for CRITICAL).
+
+  <b>BUSINESS OUTCOMES (DRRI >95%)</b>
+  MTTD: 48h -> 4h  |  MTTR: 4-8h -> 44min
+  40% toil reduction  |  SLA 60% -> 80-88% target
+  Measured via check_execution_log + DIGITAL_DATA_ANOMALIES
+end note
+
+@enduml

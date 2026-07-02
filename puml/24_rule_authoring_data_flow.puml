@@ -1,0 +1,161 @@
+@startuml 24_Rule_Authoring_Data_Flow
+!theme plain
+
+skinparam backgroundColor #F8F9FA
+skinparam defaultFontSize 10
+skinparam ArrowThickness 1.5
+skinparam sequence {
+  ArrowColor #455A64
+  LifeLineBorderColor #B0BEC5
+  ParticipantBorderColor #90A4AE
+  ParticipantBackgroundColor #ECEFF1
+  BoxBorderColor #78909C
+  BoxFontColor #37474F
+  BoxFontSize 9
+}
+
+title DQ Rule Authoring -- End-to-End Data Flow\nDatabricks | Mosaic AI | Delta Lake | Unity Catalog | Python | Turn 1: SUGGEST >> Turn 2: APPLY
+
+' -------------------------------------------------------
+' PLATFORM SWIMLANES
+' -------------------------------------------------------
+
+box "Browser" #FFF3E0
+  actor "Data Engineer\nor Business Analyst" as USR
+end box
+
+box "Databricks Workspace  |  Genie Space (Mosaic AI)" #E3F2FD
+  participant "Genie Space\n[Chat UI]" as GENIE
+  participant "Intent Router\n[llama-3.1-70b\n Serverless]" as INTENT
+end box
+
+box "Databricks App  |  DQ Backend App (Python UC Functions)" #E8F5E9
+  participant "Check Suggestion\nResolver\n[UC Function]" as CSR
+  participant "SQL Generator\n[Python+LLM\n RAG-grounded]" as SQLGEN
+  participant "Security Guard\n[Python AST\n SELECT-only]" as SEC
+  participant "SQL Validator\n[SQL dry-run\n REST API]" as SQLVAL
+  participant "Duplicate Detector\n[difflib +\n BGE-M3 cosine]" as DEDUP
+  participant "Trend Scorer\n[LLM 30-day\n predictor]" as TREND
+  participant "Approval Gateway\n[rule engine\n owner check]" as APPR
+end box
+
+box "Unity Catalog  |  Delta Lake" #FFF8E1
+  database "suggestions_cache\n[Delta Table]" as CACHE
+  database "anomaly_check_config\n[Delta Table\n Rule Registry]" as CONFIG
+  database "rule_audit_log\n[Delta Table]" as AUDIT
+  database "table_daily_metrics\n[Delta Table\n EWMA baselines]" as METRICS
+end box
+
+box "Mosaic AI  |  Model Serving (Databricks Serverless)" #FCE4EC
+  participant "LLM Endpoint\n[claude-3-5-sonnet\n llama-3.1-70b]" as LLM
+  participant "Embedding\n[BGE-M3\n text-to-vector]" as EMBED
+end box
+
+box "External  |  Notifications" #F3E5F5
+  participant "Email + Jira\n[SMTP + REST API]" as NOTIFY
+end box
+
+' -------------------------------------------------------
+' TURN 1 -- SUGGEST
+' -------------------------------------------------------
+
+== TURN 1  --  SUGGEST: User asks what DQ checks apply to a table ==
+
+USR -> GENIE : "Suggest DQ checks for\ncatalog.gold.fact_orders"
+
+GENIE -> INTENT : classify_intent(message, conv_id)
+INTENT -> LLM : classify: SUGGEST | APPLY | CUSTOM | READ
+LLM --> INTENT : {intent: SUGGEST_CHECKS, table_fqn: catalog.gold.fact_orders}
+
+GENIE -> CSR : dq_suggest_checks(table_fqn, user_id)\n[UC Function Tool call]
+
+CSR -> CONFIG : DESCRIBE HISTORY table LIMIT 1
+CONFIG --> CSR : schema_version = 847
+
+CSR -> CACHE : SELECT WHERE table_fqn + schema_version = 847
+
+alt Cache HIT  --  suggestions exist for this schema version
+  CACHE --> CSR : suggestions_json  (no LLM call)
+else Cache MISS  --  new table or schema changed
+  CACHE --> CSR : (empty)
+  CSR -> LLM : generate checks from schema + data contract
+  LLM --> CSR : [NULL_RATE, VOLUME_ANOMALY, FRESHNESS_SLA,\n DISTRIBUTION_DRIFT, CUSTOM_SQL]
+  CSR -> CACHE : MERGE suggestions (upsert by schema_version)
+end
+
+CSR -> CONFIG : SELECT existing active rules  (dedup pre-check)
+CONFIG --> CSR : {existing: [FRESHNESS_SLA already active]}
+
+CSR --> GENIE : {5 suggestions: 4 [NEW] / 1 [EXISTS], schema_version: 847}
+GENIE --> USR : numbered list with [NEW]/[EXISTS] status\n"Type: Apply 1 and 2 | Apply ALL | Save custom rule"
+
+' -------------------------------------------------------
+' TURN 2 -- APPLY
+' -------------------------------------------------------
+
+== TURN 2  --  APPLY: User selects rules and saves ==
+
+USR -> GENIE : "Apply checks 1 and 2"
+
+GENIE -> INTENT : classify_intent(message, conversation_context)
+INTENT -> LLM : classify + extract selected_ids
+LLM --> INTENT : {intent: APPLY_CHECKS, selected_ids: [1, 2]}
+
+note over GENIE, APPR
+  WRITE intent: Genie calls UC Function Tool (dq_author_rule).
+  UC Function runs in DQ Backend App under a Service Principal
+  with INSERT permission on anomaly_check_config.  L1 >> L2 handoff.
+end note
+
+loop for each selected check  (id=1: NULL_RATE, id=2: VOLUME_ANOMALY)
+
+  GENIE -> SQLGEN : dq_author_rule(suggestion, table_fqn, requestor)
+
+  SQLGEN -> LLM : generate SQL  {check_type, column, RAG template,\n data_contract threshold}
+  LLM --> SQLGEN : {sql: SELECT COUNT(*) FILTER..., threshold_pct: 2.0}
+
+  SQLGEN -> SEC : validate_security(sql)
+
+  alt Security PASS
+    SEC --> SQLVAL : sanitised_sql
+
+    SQLVAL -> LLM : EXPLAIN dry-run  (SQL REST API)
+    LLM --> SQLVAL : {valid, columns_exist, cost_dbu: 0.002}
+
+    SQLVAL -> DEDUP : {sql, check_type, table_fqn}
+    DEDUP -> CONFIG : SELECT existing sql_text WHERE is_active
+    CONFIG --> DEDUP : existing_sqls[]
+    DEDUP -> EMBED : embed(candidate_sql + existing_sqls)
+    EMBED --> DEDUP : cosine similarity scores  (threshold 0.85)
+    DEDUP --> TREND : {similarity: 0.12, is_duplicate: false}
+
+    TREND -> METRICS : SELECT 30-day pass/fail baselines
+    METRICS --> TREND : {pass_rate: 0.96, baseline_stddev: 0.4}
+    TREND -> LLM : predict violation probability
+    LLM --> TREND : {trend_score: 0.73, predicted_pass_pct: 94}
+
+    TREND --> APPR : {sql, metadata, trend_score, requestor, owner}
+
+    alt Owner self-approves  (requestor == owner)
+      APPR -> CONFIG : INSERT anomaly_check_config  (full row, is_active=true)
+      CONFIG --> APPR : rule_id = RID-2847
+      APPR -> AUDIT  : INSERT rule_audit_log  (CREATED, SELF_APPROVED)
+      APPR -> NOTIFY : trigger RULE_CREATED notification
+      NOTIFY --> USR : Email: "RID-2847 activated -- NULL_RATE on order_id"
+      APPR --> GENIE : {status: SAVED, rule_id: RID-2847, is_active: true}
+    else Non-owner  --  pending approval
+      APPR -> CONFIG : INSERT  (is_active=false, status=PENDING)
+      APPR -> NOTIFY : approval request to PO + Tech Lead
+      APPR --> GENIE : {status: PENDING_APPROVAL, rule_id: RID-2848}
+    end
+
+  else Security FAIL  (DDL / injection detected)
+    SEC --> GENIE : {error: SQL_SECURITY_VIOLATION}
+    GENIE --> USR : "Forbidden keyword -- please revise your SQL"
+  end
+
+end
+
+GENIE --> USR : "[OK] 2 rules saved: RID-2847 + RID-2848\nCoverage: 11 >> 13 active rules\nNext DQ run: 22:00 (pricing_dq_job)"
+
+@enduml

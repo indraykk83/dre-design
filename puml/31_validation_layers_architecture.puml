@@ -1,0 +1,189 @@
+@startuml 31_validation_layers_architecture
+!theme plain
+title RAG Strategy with Multi-Layer Validation -- Component Architecture
+
+skinparam rectangle {
+  BackgroundColor #E3F2FD
+  BorderColor #1565C0
+  RoundCorner 10
+}
+
+left to right direction
+
+rectangle "Query Optimization\n(LLM)" as QueryOpt #C5CAE9 {
+  [Entity Extraction]
+  [Ambiguity Detection]
+  [Query Rewrite]
+}
+
+rectangle "CAG Layer\n(Static Context)" as CAG #C8E6C9 {
+  [supported_checks.md]
+  [security_patterns.json]
+  [governance_rules.json]
+  [pii_catalog.json]
+}
+
+rectangle "CRAG Layer\n(Dynamic Retrieval)" as CRAG #DCEDC8 {
+  [Vector Search]
+  [Confidence Evaluator]
+  [Query Rewriter]
+  [Keyword Fallback]
+}
+
+rectangle "SQL Generation\n(LLM)" as SQLGen #E1BEE7 {
+  [Pattern-Based SQL]
+  [Grounded Generation]
+  [Explanation]
+}
+
+rectangle "Security Layer\n(Rule-Based)" as Security #FFCDD2 {
+  [SELECT-Only Check]
+  [Forbidden Keywords]
+  [Injection Detection]
+  [Multi-Statement Block]
+}
+
+rectangle "Governance Layer\n(Policy + Catalog)" as Governance #FFF9C4 {
+  [PII Detection]
+  [Compliance Check]
+  [Access Control]
+  [Approval Routing]
+}
+
+rectangle "SQL Optimization\n(LLM + Metadata)" as SQLOpt #BBDEFB {
+  [Partition Push-Down]
+  [Predicate Push-Down]
+  [Cost Estimation]
+  [Schema Validation]
+}
+
+rectangle "Duplicate Detection\n(RAG + LLM)" as DupDetect #FFE082 {
+  [Vector Similarity]
+  [Semantic Match (LLM)]
+  [Structural Match]
+  [Functional Equivalence]
+}
+
+rectangle "SQL Validation\n(Rule + LLM)" as SQLVal #C5E1A5 {
+  [Syntax Check]
+  [Schema Check]
+  [Logical Validation (LLM)]
+  [Edge Case Check (LLM)]
+}
+
+rectangle "Approval Gateway\n(Policy Router)" as Approval #F8BBD0 {
+  [Owner Auto-Approve]
+  [PO/TL Review]
+  [DataGov Review]
+  [SLA Enforcement]
+}
+
+QueryOpt --> CAG : Get static context
+QueryOpt --> CRAG : Retrieve patterns
+CAG --> SQLGen : Static rules
+CRAG --> SQLGen : Dynamic context
+SQLGen --> Security : Validate security
+Security --> Governance : Check policy
+Governance --> SQLOpt : Optimize
+SQLOpt --> DupDetect : Check duplicate
+DupDetect --> SQLVal : Validate SQL
+SQLVal --> Approval : Route approval
+
+note bottom of QueryOpt
+  <b>Stage 1: LLM</b>
+  Understands user intent
+end note
+
+note bottom of CAG
+  <b>Stage 2: Static</b>
+  Always available
+  No retrieval cost
+end note
+
+note bottom of CRAG
+  <b>Stage 3: RAG</b>
+  Confidence-gated
+  Query rewrite on MEDIUM
+end note
+
+note bottom of SQLGen
+  <b>Stage 4: LLM + Context</b>
+  Grounded generation
+end note
+
+note bottom of Security
+  <b>Stage 5: Rule-Based</b>
+  Hard blocks
+  No LLM needed
+end note
+
+note bottom of Governance
+  <b>Stage 6: Catalog + Policy</b>
+  PII from CAG catalog
+  Approval routing
+end note
+
+note bottom of SQLOpt
+  <b>Stage 7: LLM + Metadata</b>
+  Uses UC schema
+  Cost-aware
+end note
+
+note bottom of DupDetect
+  <b>Stage 8: RAG + LLM</b>
+  Semantic similarity
+  LLM judges match
+end note
+
+note bottom of SQLVal
+  <b>Stage 9: Rule + LLM</b>
+  Syntax (rule)
+  Logic (LLM)
+end note
+
+note bottom of Approval
+  <b>Stage 10: Policy Router</b>
+  Owner/PII/Cost routing
+end note
+
+legend right
+  <b>When to use LLM vs RAG vs Rule-Based?</b>
+  
+  <b>LLM (reasoning/generation):</b>
+  - Query understanding & optimization
+  - SQL generation
+  - SQL optimization
+  - Logical validation
+  - Semantic duplicate judgment
+  
+  <b>RAG (grounding/retrieval):</b>
+  - SQL pattern retrieval (CRAG)
+  - Duplicate detection (vector search)
+  - Example retrieval
+  - Similar incident lookup
+  
+  <b>Rule-Based (deterministic checks):</b>
+  - Security checks (forbidden keywords)
+  - Syntax validation
+  - Schema existence checks
+  - PII catalog lookup
+  
+  <b>Hybrid (Rule + LLM):</b>
+  - SQL validation (syntax + logic)
+  
+  <b>Hybrid (RAG + LLM):</b>
+  - Duplicate detection (retrieve + judge)
+  - CRAG confidence evaluation
+  
+  <b>Static Context (CAG):</b>
+  - Small, stable docs (<5KB)
+  - Always in system prompt
+  - supported_checks, security_rules, pii_catalog
+  
+  <b>Dynamic Context (CRAG):</b>
+  - Large corpus (>1GB)
+  - Retrieved on-demand
+  - Confidence-gated
+endlegend
+
+@enduml

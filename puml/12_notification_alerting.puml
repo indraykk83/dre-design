@@ -1,0 +1,111 @@
+@startuml 12_Notification_Alerting
+!theme plain
+title 3D Data Quality Framework -- Notification & Alerting Architecture
+
+skinparam backgroundColor #F8F9FA
+skinparam rectangle {
+  RoundCorner 8
+  BorderColor #90A4AE
+  FontSize 10
+}
+skinparam cloud {
+  BackgroundColor #FFF9C4
+  BorderColor #F9A825
+}
+skinparam arrow {
+  Color #546E7A
+  FontSize 9
+}
+
+' ========== TRIGGER EVENTS ==========
+rectangle "Notification Trigger Events" as Events #FFF3E0 {
+  rectangle "Rule submitted for approval\n(status -> PENDING_APPROVAL)"           as E1 #FFECB3
+  rectangle "Rule approved / rejected / revised\n(approval decision made)"        as E2 #FFECB3
+  rectangle "DQ violation detected\n(violation_rate > threshold)"                 as E3 #FFCDD2
+  rectangle "Rule execution failed / timeout\n(system error)"                     as E4 #FFCDD2
+  rectangle "Approval SLA breached\n(+24h reminder / +48h escalation)"            as E5 #FFECB3
+  rectangle "Emergency rule disable\n(DataOps kill-switch activated)"             as E6 #FFCDD2
+  rectangle "Schema change detected\n(column added / dropped / renamed)"          as E7 #FFECB3
+  rectangle "Rule promoted to ACTIVE\n(new rule now executing)"                   as E8 #DCEDC8
+  rectangle "Execution batch complete\n(daily summary)"                           as E9 #DCEDC8
+}
+
+' ========== DISPATCHER ==========
+rectangle "Notification Dispatcher" as Dispatcher #E3F2FD {
+  rectangle "(1) Priority Router\n----------------\nP1 = Critical (violations, failures)\nP2 = Action required (approval, SLA)\nP3 = Informational (status change)" as PriorityRouter #BBDEFB
+
+  rectangle "(2) Deduplication Engine\n----------------\nSliding window: 1hr cooldown\nSame rule + same violation = suppress\nPrevents alert fatigue" as Dedup #BBDEFB
+
+  rectangle "(3) Channel Selector\n----------------\nP1 -> Email + Jira (P1 ticket)\nP2 -> Email + Jira (P2 ticket)\nP3 -> Email only (or in-app)" as ChanSelect #BBDEFB
+
+  rectangle "(4) Rate Limiter\n----------------\nMax 10 alerts/rule/hr\nCooldown after P1 trigger\nBatch digest for P3" as RateLimit #BBDEFB
+
+  rectangle "(5) Template Engine\n----------------\nRule details + SQL snippet\nViolation sample rows\nDirect action links\nTrend score included" as TemplEngine #BBDEFB
+}
+
+' ========== CHANNELS ==========
+cloud "Notification Channels" as Channels {
+  rectangle "Email\n(All P1 / P2 / P3 events)" as Email #E8F5E9
+  rectangle "Jira\n(auto-ticket for violations\nand approval requests)" as Jira #E8F5E9
+  rectangle "Databricks In-App\n(workspace notifications)" as DBNotif #E8F5E9
+}
+
+' ========== RECIPIENTS ==========
+rectangle "Notification Recipients" as Recipients #FCE4EC {
+  rectangle "Rule Owner / PO\n(all events for owned rules)" as OwnerRecip
+  rectangle "Tech Lead\n(P1 violations, technical escalations)" as TLRecip
+  rectangle "Data Governance\n(SLA breaches, compliance events)" as DGRecip
+  rectangle "DataOps\n(execution failures, schema changes)" as DORecip
+  rectangle "Rule Submitter\n(approval decisions, SLA reminders)" as SubRecip
+}
+
+' ========== PRIORITY ROUTING ==========
+E1 --> PriorityRouter : P2 -- action required
+E2 --> PriorityRouter : P3 -- informational
+E3 --> PriorityRouter : P1 / P2 / P3\n(by violation severity)
+E4 --> PriorityRouter : P1 -- system failure
+E5 --> PriorityRouter : P2 -- SLA breach
+E6 --> PriorityRouter : P1 -- emergency
+E7 --> PriorityRouter : P2 -- schema drift
+E8 --> PriorityRouter : P3 -- informational
+E9 --> PriorityRouter : P3 -- daily digest
+
+PriorityRouter --> Dedup
+Dedup          --> ChanSelect
+ChanSelect     --> RateLimit
+RateLimit      --> TemplEngine
+
+TemplEngine    --> Email   : All events
+TemplEngine    --> Jira    : P1 + P2 only
+TemplEngine    --> DBNotif : P1 + P2 (in-workspace)
+
+Channels       --> Recipients
+
+note right of Dedup
+  Deduplication window examples:
+  - Null violation on same column: 1hr suppress
+  - Same rule failure: 2hr cooldown
+  - Daily summary batches P3 events
+    to single digest at 08:00 UTC
+end note
+
+note right of PriorityRouter
+  Severity Classification:
+  +------------------------------------+
+  | P1 = Threshold breached >2x        |
+  |      Execution failure             |
+  |      Emergency disable             |
+  |      PII column violation          |
+  +------------------------------------+
+  | P2 = Threshold breached (first)    |
+  |      Approval SLA breach           |
+  |      Schema change                 |
+  |      Approval pending              |
+  +------------------------------------+
+  | P3 = Rule activated                |
+  |      Approval decision             |
+  |      Daily execution summary       |
+  +------------------------------------+
+end note
+
+@enduml

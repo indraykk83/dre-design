@@ -1,0 +1,137 @@
+@startuml 07_C4_Code
+!theme plain
+title C4 Model -- Level 4: Code Diagram\nSecurity Guard Component  (Rule Validator Service)
+
+skinparam classBackgroundColor #ECEFF1
+skinparam classBorderColor #90A4AE
+skinparam arrowColor #546E7A
+skinparam noteBackgroundColor #FFF9C4
+skinparam noteBorderColor #F9A825
+
+package "dq_framework.validator.security" {
+
+  class SecurityGuard {
+    + validate(sql: str, context: RuleContext) : SecurityReport
+    - _check_injection_patterns(sql: str) : list[Violation]
+    - _check_ddl_dml_keywords(sql: str) : list[Violation]
+    - _check_dangerous_functions(sql: str) : list[Violation]
+    - _check_query_complexity(sql: str) : ComplexityReport
+    - _enforce_select_only(sql: str) : bool
+    - _sanitise_input(raw_sql: str) : str
+  }
+
+  class InjectionPatternMatcher {
+    - patterns: list[re.Pattern]
+    + match(sql: str) : list[Match]
+    + load_patterns(config_path: str) : None
+    - _compile_patterns(raw: list[str]) : list[re.Pattern]
+  }
+
+  class DDLDMLBlocklist {
+    - BLOCKED_KEYWORDS: frozenset[str]
+    + {static} DEFAULT = {DROP, INSERT, UPDATE, DELETE,\n  ALTER, TRUNCATE, CREATE, EXEC,\n  MERGE, REPLACE, OVERWRITE}
+    + contains_blocked(sql: str) : bool
+    + get_violations(sql: str) : list[str]
+  }
+
+  class DangerousFunctionBlocklist {
+    - BLOCKED_FUNCTIONS: frozenset[str]
+    + {static} DEFAULT = {xp_cmdshell, OPENROWSET,\n  BULK INSERT, LOAD DATA, eval}
+    + contains_blocked(sql: str) : bool
+    + get_violations(sql: str) : list[str]
+  }
+
+  class ComplexityAnalyser {
+    - max_joins: int = 5
+    - max_subqueries: int = 3
+    - max_estimated_dbu: float = 1.0
+    + analyse(sql: str) : ComplexityReport
+    + estimate_cost_dbu(sql: str, spark: SparkSession) : float
+    - _count_joins(sql: str) : int
+    - _count_subqueries(sql: str) : int
+  }
+
+  class SelectEnforcer {
+    + is_select_only(sql: str) : bool
+    + strip_leading_comments(sql: str) : str
+    - _parse_statement_type(sql: str) : str
+  }
+
+  class SecurityReport {
+    + passed: bool
+    + violations: list[Violation]
+    + severity: str
+    + sanitised_sql: str
+    + recommendations: list[str]
+    + to_dict() : dict
+  }
+
+  class Violation {
+    + type: str
+    + detail: str
+    + severity: str  ' CRITICAL | HIGH | MEDIUM | LOW
+    + position: int
+    + suggested_fix: str
+  }
+
+  class RuleContext {
+    + user_id: str
+    + user_roles: list[str]
+    + table_name: str
+    + column_names: list[str]
+    + environment: str  ' dev | prod
+    + data_classification: str  ' PII | FINANCIAL | INTERNAL | PUBLIC
+    + rag_contract: DataContractContext  ' populated by RAGRetriever from data contract
+  }
+
+  class DataContractContext {
+    + table_name: str
+    + pii_flag: bool
+    + owner: str
+    + sla_freshness_hours: int
+    + expected_columns: list[str]
+    + domain: str
+    + retrieved_by: str  ' RAGRetriever.embed_and_search()
+  }
+
+  class ComplexityReport {
+    + within_limits: bool
+    + join_count: int
+    + subquery_count: int
+    + estimated_dbu: float
+    + warnings: list[str]
+  }
+}
+
+' === RELATIONSHIPS ===
+SecurityGuard "1" --> "1"  InjectionPatternMatcher  : uses
+SecurityGuard "1" --> "1"  DDLDMLBlocklist           : uses
+SecurityGuard "1" --> "1"  DangerousFunctionBlocklist : uses
+SecurityGuard "1" --> "1"  ComplexityAnalyser        : uses
+SecurityGuard "1" --> "1"  SelectEnforcer            : uses
+SecurityGuard "1" --> "1"  SecurityReport            : produces
+SecurityGuard     ..>       RuleContext               : consumes
+SecurityReport "1" *-- "*" Violation                 : contains
+ComplexityAnalyser --> ComplexityReport : produces
+RuleContext "1" *-- "0..1" DataContractContext        : carries RAG contract
+
+note right of SecurityGuard
+  Entry point for all SQL submitted
+  via the DQ Agent before persistence.
+  Any FAILED check blocks rule creation.
+  Returns sanitised SQL + recommendations.
+end note
+
+note right of DDLDMLBlocklist
+  DQ rules MUST be SELECT-only.
+  Any data-modifying statement is
+  an absolute block -- no exceptions.
+end note
+
+note bottom of InjectionPatternMatcher
+  Patterns loaded from:
+  /Volumes/.../dq_documentation/security_patterns.json
+  Allows pattern updates without code deploy.
+end note
+
+@enduml

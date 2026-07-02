@@ -1,0 +1,155 @@
+@startuml 01_Technical_Rule_Capture
+!theme plain
+title DQ Rule Capture -- CAG + CRAG-Gated RAG + Security + Approval\nGenie Space | DQ Backend App | Mosaic AI | Unity Catalog
+
+skinparam backgroundColor #F8F9FA
+skinparam defaultFontSize 10
+skinparam ArrowThickness 1.5
+skinparam sequence {
+  ArrowColor #455A64
+  LifeLineBorderColor #B0BEC5
+  ParticipantBorderColor #90A4AE
+  ParticipantBackgroundColor #ECEFF1
+}
+
+actor "User\n(Data Engineer /\nBusiness Analyst)" as USR
+participant "Genie Space\n[Chat UI]" as GENIE
+participant "LLM Engine\n[Mosaic AI]" as LLM
+participant "DQ Backend App\n[Python / REST]" as BACKEND
+participant "CAG Pre-Loader\n[static docs]" as CAG #DCEDC8
+participant "CRAG Evaluator\n[confidence gate]" as CRAGEVAL #FFCDD2
+participant "Query Rewriter" as REWRITER #FFF9C4
+participant "Vector Search\n[BGE-M3]" as VSEARCH
+participant "UC Volume\n[Doc Store]" as DOCS
+participant "Security Guard\n[AST, SELECT-only]" as SEC
+participant "SQL Validator\n[dry-run REST]" as SQLVAL
+participant "Duplicate Detector\n[difflib + cosine]" as DEDUP
+participant "Approval Gateway\n[rule engine]" as APPR
+database "anomaly_check_config\n[Delta Table]" as RULEDB
+database "check_execution_log\n[Delta Table]" as EXECLOG
+database "rule_audit_log\n[Delta Table]" as AUDITDB
+
+== [0] Intent Classification ==
+
+USR -> GENIE : NL message  (e.g. "Create null check for customer_email")
+GENIE -> LLM : classify_intent + extract entities
+LLM --> GENIE : {intent: READ | WRITE, table, column, check_type}
+
+alt READ intent -- query / analyse
+  GENIE -> LLM : generate SELECT SQL
+  LLM --> GENIE : SELECT query
+  GENIE -> RULEDB : execute SELECT (read-only via Unity Catalog)
+  RULEDB --> GENIE : results
+  GENIE --> USR : NL answer  (tables, charts, summaries)
+
+else WRITE intent -- create / update / disable rule
+  GENIE -> LLM : select UC tool + build payload
+  LLM --> GENIE : tool_call: dq_backend.create_rule(payload)
+  GENIE -> BACKEND : invoke UC tool  dq_backend.create_rule(payload)
+
+  == [1] CAG Pre-Load + CRAG-Gated RAG ==
+
+  BACKEND -> CAG : get_static_context()
+  CAG --> BACKEND : supported_checks.md + security_patterns.json  (~3,200 tokens)
+
+  BACKEND -> VSEARCH : embed_and_search(query, top_k=8)
+  VSEARCH -> DOCS : fetch chunks by cosine similarity
+  DOCS --> VSEARCH : matched doc chunks
+  VSEARCH --> BACKEND : ranked context  (contract + template + examples)
+
+  BACKEND -> CRAGEVAL : evaluate_retrieval(query, chunks, scores)
+  CRAGEVAL --> BACKEND : {confidence: HIGH | MEDIUM | LOW, score, missing_entities}
+
+  alt CRAG MEDIUM (0.50-0.72) -- rewrite + retry
+    BACKEND -> REWRITER : rewrite_query(original, missing_entities)
+    REWRITER --> BACKEND : expanded_query
+    BACKEND -> VSEARCH : embed_and_search(expanded_query, top_k=12)
+    VSEARCH --> BACKEND : expanded chunks
+    BACKEND -> CRAGEVAL : re_evaluate(expanded_query, chunks)
+    CRAGEVAL --> BACKEND : {confidence, score}
+  end
+
+  alt CRAG LOW (<0.50) -- keyword fallback
+    BACKEND -> DOCS : keyword_search(missing_entities)
+    DOCS --> BACKEND : keyword_matched_chunks
+  end
+
+  BACKEND -> LLM : generate DQ SQL  {CAG prompt + CRAG-gated context}
+  LLM --> BACKEND : generated SQL + crag_confidence
+
+  == [2] Security Guard ==
+
+  BACKEND -> SEC : validate_security(sql)
+  SEC --> BACKEND : {passed, issues}
+
+  alt Security FAIL  (DDL / injection detected)
+    BACKEND -> LLM : regenerate SELECT-only SQL
+    LLM --> BACKEND : safe SQL
+    BACKEND --> GENIE : {warning: sql_rewritten, before, after}
+    GENIE --> USR : "SQL rewritten for safety -- please review"
+  end
+
+  == [3] SQL Validation ==
+
+  BACKEND -> SQLVAL : validate_sql(sql)
+  SQLVAL --> BACKEND : {valid, tuning_suggestions, cost_dbu}
+
+  alt Tuning required
+    BACKEND -> LLM : optimise SQL for performance
+    LLM --> BACKEND : optimised SQL
+    BACKEND --> GENIE : {info: sql_tuned, before, after}
+    GENIE --> USR : "SQL auto-tuned -- review diff"
+  end
+
+  == [4] Duplicate Detection ==
+
+  BACKEND -> DEDUP : check_duplicates(sql, table_fqn)
+  DEDUP -> RULEDB : SELECT active rules WHERE table_name = ?
+  RULEDB --> DEDUP : existing_rules
+  DEDUP --> BACKEND : {duplicates, similarity_scores}
+
+  alt Duplicate found
+    BACKEND --> GENIE : {warning: duplicate_found, rule_id, similarity_pct}
+    GENIE --> USR : "Similar rule exists  (id: RID-xxx, sim: 87%)  -- proceed?"
+    USR --> GENIE : confirm | cancel
+    GENIE --> BACKEND : user_decision
+  end
+
+  == [5] Metadata + Trend Score ==
+
+  BACKEND --> GENIE : {status: metadata_required, fields: [...]}
+  GENIE --> USR : "Confirm: owner / frequency / threshold / priority"
+  USR --> GENIE : metadata confirmed
+  GENIE --> BACKEND : metadata payload
+
+  BACKEND -> EXECLOG : SELECT 30-day pass/fail baselines  (table + column)
+  EXECLOG --> BACKEND : {pass_rate, fail_rate, baseline_variance}
+  BACKEND -> LLM : predict_trend(history)
+  LLM --> BACKEND : {pass_pct: 94, fail_pct: 6, confidence: HIGH}
+  BACKEND --> GENIE : trend_score
+  GENIE --> USR : "Trend: 94% PASS / 6% FAIL  (last 30 days)"
+
+  == [6] Persist + Approval ==
+
+  BACKEND -> RULEDB : INSERT anomaly_check_config  (is_active=false)
+  RULEDB --> BACKEND : config_id = DQ_20260701_042
+  BACKEND -> AUDITDB : LOG CREATE  {actor, config_id, timestamp}
+
+  BACKEND -> APPR : route_approval(config_id, submitter, owner)
+
+  alt Submitter IS owner -- self-approve
+    APPR -> RULEDB : UPDATE is_active=true  (auto_approved)
+    APPR -> AUDITDB : LOG AUTO_APPROVED
+    BACKEND --> GENIE : {status: ACTIVE, config_id: DQ_20260701_042}
+    GENIE --> USR : "[OK] Rule active  ID: DQ_20260701_042"
+  else Non-owner -- pending approval
+    APPR -> RULEDB : UPDATE is_active=false  (status=PENDING)
+    APPR -> AUDITDB : LOG PENDING_APPROVAL
+    APPR --> BACKEND : Email + Jira to PO + Tech Lead
+    BACKEND --> GENIE : {status: PENDING_APPROVAL, config_id}
+    GENIE --> USR : "Submitted for approval  SLA: 48h"
+  end
+
+end
+
+@enduml

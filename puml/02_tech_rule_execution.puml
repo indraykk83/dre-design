@@ -1,0 +1,298 @@
+@startuml 02_Anomaly_Detection_Engine
+!theme plain
+title 3D Data Quality Framework \u2014 Anomaly Detection Engine (D1)\nExecution Pipeline \u00b7 5D Dimensions \u00b7 Drift Detection \u00b7 Delta Metadata Cache
+
+skinparam backgroundColor #FAFAFA
+skinparam sequence {
+  ArrowColor #546E7A
+  ActorBorderColor #263238
+  LifeLineBorderColor #B0BEC5
+  ParticipantBorderColor #90A4AE
+  ParticipantBackgroundColor #ECEFF1
+  BoxBorderColor #CFD8DC
+}
+skinparam note {
+  BackgroundColor #FFF8E1
+  BorderColor #FFB300
+  FontColor #4E342E
+  FontSize 10
+}
+
+participant "Trigger Strategy\n(Schedule / Event / Threshold)" as Trigger
+participant "ANOMALY_DETECTION_JOB\n(Databricks Workflow)"        as Job
+participant "Metadata Cache\n(Delta DESCRIBE + HISTORY)"          as Cache
+database    "anomaly_check_config\n(Delta)"                        as RuleDB
+database    "table_daily_metrics\n(Delta)"                         as MetricsDB
+participant "Check Dispatcher\n(routes by dimension)"              as Dispatcher
+participant "Spark / SQL Engine\n(Job Cluster)"                    as Spark
+database    "Target Data Tables\n(Delta Lake)"                     as TargetData
+database    "check_execution_log\n(Delta)"                         as ExecLog
+database    "DIGITAL_DATA_ANOMALIES\n(Delta)"                      as AnomalyDB
+database    "invalid_custom_sql_log\n(Delta)"                      as BadSqlLog
+participant "Alert Manager\n(Threshold Evaluator)"                 as AlertMgr
+participant "Notification Service\n(Email / Jira)"                 as Notify
+participant "D2 Diagnosis\nEngine"                                  as D2
+
+
+== [1] Execution Trigger ==
+
+Trigger -> Job : Trigger event
+activate Job
+note right of Trigger
+  Trigger Strategies:
+  1) Event-based   \u2014 upstream job end signal
+  2) Scheduled     \u2014 cron (daily 02:00 UTC)
+  3) Threshold     \u2014 volume / drift breach
+  4) Manual        \u2014 on-demand by DataOps
+  5) Schema change \u2014 contract violation detected
+  6) Retry/backoff \u2014 cooldown (prevent runaway)
+  7) Suppression   \u2014 dedup + alert fatigue control
+end note
+
+Job -> RuleDB : SELECT config_id, table_name, check_type,\n       column_name, custom_sql, check_dimension,\n       priority, owner, thresholds, lookback_days\nFROM   anomaly_check_config\nWHERE  is_active = true\n  AND  (job_id = this_job_id\n        OR expected_frequency = this_schedule)\nORDER  BY priority ASC
+activate RuleDB
+RuleDB --> Job : Active rules list [{rule_1..rule_n}]
+deactivate RuleDB
+
+Job -> MetricsDB : Load baselines for drift + volume checks\n(30d rolling stats per table/column)
+activate MetricsDB
+MetricsDB --> Job : {row_count_mean, row_count_stddev,\n dist_baseline[], freshness_sla_hours,\n write_ops_baseline}
+deactivate MetricsDB
+
+== [2] Delta Metadata Cache (per unique table, built once per job run) ==
+
+note right of Job
+  Metadata cache (keyed by catalog.schema.table, TTL = this run):
+  DESCRIBE DETAIL, DESCRIBE HISTORY LIMIT 50, SHOW PARTITIONS,
+  INFORMATION_SCHEMA.COLUMNS -- built once per unique table per run.
+end note
+
+Job -> Cache : Build metadata cache for all unique tables\nin this job run
+activate Cache
+Cache -> TargetData : DESCRIBE DETAIL {table}\n(per unique table, once per run)
+TargetData --> Cache : {last_modified, num_files,\n size_bytes, partitionColumns}
+Cache -> TargetData : DESCRIBE HISTORY {table} LIMIT 50\n(last 50 versions)
+TargetData --> Cache : {version[], timestamp[], operation[],\n operationMetrics[numDeletedRows,\n numUpdatedRows, numOutputRows]}
+Cache -> TargetData : SHOW PARTITIONS {table}\n(latest partition key + value)
+TargetData --> Cache : {latest_partition_key, latest_partition_ts}
+Cache -> TargetData : SELECT * FROM INFORMATION_SCHEMA.COLUMNS\nWHERE table_name = ? AND table_schema = ?
+TargetData --> Cache : {column_name[], data_type[], is_nullable[]}
+Cache --> Job : metadata_cache{table \u2192 {detail, history,\n partition, schema}}
+deactivate Cache
+
+== [3] Priority Queue Processing ==
+
+note over Job
+  Rules executed in priority order:
+  P1 (Critical) \u2192 P2 (High) \u2192 P3 (Standard)
+  Lineage-aware fanout \u2014 parent tables before children.
+  Check Dispatcher routes each config to the correct
+  execution strategy based on check_dimension + check_type.
+end note
+
+loop For each ACTIVE config (priority-ordered P1\u2192P2\u2192P3)
+
+  Job -> Dispatcher : Dispatch rule\n{config_id, check_dimension, check_type,\n table_name, column_name, thresholds,\n metadata_cache[table]}
+  activate Dispatcher
+
+  ' -- FAMILY A: 5D QUALITY DIMENSIONS ------------------------------
+
+  alt check_dimension = FRESHNESS
+    Dispatcher -> Cache : GET last_modified from metadata_cache
+    Cache --> Dispatcher : last_modified timestamp
+    Dispatcher -> Dispatcher : lag_hours = NOW() - last_modified\nVIOLATION if lag_hours > threshold.max_lag_hours
+
+  else check_dimension = COMPLETENESS
+    Dispatcher -> Spark : Execute completeness SQL\n(partition-pruned by lookback_days)
+    activate Spark
+    Spark -> TargetData : SELECT-only null/empty rate query
+    TargetData --> Spark : {null_count, total_rows, null_rate_pct}
+    Spark --> Dispatcher : result
+    deactivate Spark
+
+  else check_dimension = CONSISTENCY
+    Dispatcher -> Spark : Execute consistency SQL\n(join-based orphan check)
+    activate Spark
+    Spark -> TargetData : SELECT-only referential check
+    TargetData --> Spark : {orphan_count, total_rows}
+    Spark --> Dispatcher : result
+    deactivate Spark
+
+  else check_dimension = TIMELINESS
+
+    Dispatcher -> Cache : GET latest_partition_ts from metadata_cache
+    Cache --> Dispatcher : {latest_partition_key, latest_partition_ts}
+    Dispatcher -> Dispatcher : partition_lag = expected_ts - latest_partition_ts\nVIOLATION if lag > threshold.max_event_lag_hours
+    opt Also check event-time lag via SQL
+      Dispatcher -> Spark : SELECT MAX({event_ts_col}) FROM {table}
+      activate Spark
+      Spark -> TargetData : SELECT-only max event timestamp
+      TargetData --> Spark : max_event_ts
+      Spark --> Dispatcher : event_lag_hours
+      deactivate Spark
+    end
+
+  else check_dimension = VALIDITY
+    Dispatcher -> Spark : Execute validity SQL\n(regex / range / enum / custom assertion)
+    activate Spark
+    Spark -> TargetData : SELECT-only violation filter
+    TargetData --> Spark : {violation_count, total_rows}
+    Spark --> Dispatcher : result
+    deactivate Spark
+
+  ' -- FAMILY B: DRIFT DETECTION -------------------------------------
+
+  else check_dimension = VOLUME_DRIFT
+    Dispatcher -> Spark : SELECT COUNT(*) FROM {table}\nWHERE {date_col} = CURRENT_DATE
+    activate Spark
+    Spark -> TargetData : Row count query (partition-pruned)
+    TargetData --> Spark : current_row_count
+    Spark --> Dispatcher : current_row_count
+    deactivate Spark
+    Dispatcher -> MetricsDB : GET baseline {table, VOLUME}\n{mean, stddev, prev_day_count}
+    MetricsDB --> Dispatcher : baseline stats
+    Dispatcher -> Dispatcher : z_score = (current - mean) / stddev\ndrop_pct = (prev_day - current) / prev_day * 100\nVIOLATION if |z_score| > threshold OR drop_pct > max_drop_pct
+
+  else check_dimension = DATA_DRIFT
+    Dispatcher -> Spark : Execute distribution query:\nSELECT {col}, COUNT(*)\nFROM {table} WHERE {date_col} = CURRENT_DATE\nGROUP BY {col}
+    activate Spark
+    Spark -> TargetData : Distribution aggregation query
+    TargetData --> Spark : {value, count}[] today
+    Spark --> Dispatcher : today_distribution[]
+    deactivate Spark
+    Dispatcher -> MetricsDB : GET dist_baseline[{table, column}]\n{baseline_distribution[], baseline_date}
+    MetricsDB --> Dispatcher : baseline_distribution[]
+    Dispatcher -> Dispatcher : Compute PSI / KS-stat\nVIOLATION if PSI > threshold.max_psi\n            OR KS-stat > threshold.max_ks_stat
+
+  else check_dimension = BEHAVIOUR_DRIFT
+    Dispatcher -> Cache : GET history from metadata_cache\n(numDeletedRows, numUpdatedRows,\n numOutputRows per version)
+    Cache --> Dispatcher : history_ops[] (last 50 versions)
+    Dispatcher -> Dispatcher : Compute per-check:\n  delete_ratio = sum(deleted)/sum(output)\n  update_z_score = (today_updates - mean) / stddev\n  write_silence_hrs = NOW() - last_WRITE_ts\n  bulk_overwrite = max_single_write/total_rows\nVIOLATION if any > respective threshold
+
+  ' -- FAMILY C: STRUCTURAL CHECKS -----------------------------------
+
+  else check_dimension = SCHEMA
+
+    Dispatcher -> Cache : GET column schema from metadata_cache
+    Cache --> Dispatcher : current_columns[]
+    Dispatcher -> RuleDB : GET expected_schema_json\nFROM anomaly_check_config\nWHERE config_id = ?
+    RuleDB --> Dispatcher : expected_schema_json
+    Dispatcher -> Dispatcher : DIFF current vs expected\nVIOLATION if any column added/dropped/\n   type-changed/nullable-changed
+
+  else check_dimension = CUSTOM_SQL
+    Dispatcher -> Dispatcher : Parse-validate custom_sql\n(syntax + table existence check)
+    alt Custom SQL parse fails
+      Dispatcher -> BadSqlLog : LOG invalid SQL\n{config_id, sql, error}
+      Dispatcher -> AlertMgr : ALERT: custom SQL broken\n(possible schema change)
+    else Parse OK
+      Dispatcher -> Spark : Execute custom_sql\n(SELECT-only, partition-pruned)
+      activate Spark
+      Spark -> TargetData : Run user-authored DQ SQL
+      TargetData --> Spark : {violation_rows[], total_scanned}
+      Spark --> Dispatcher : result
+      deactivate Spark
+    end
+
+  end
+
+  ' -- RESULT EVALUATION ---------------------------------------------
+
+  Dispatcher --> Job : {check_result: PASS|FAIL|ERROR|TIMEOUT,\n violation_rate, z_score, psi,\n dimension, check_type, samples[]}
+  deactivate Dispatcher
+
+  alt Execution TIMEOUT
+    Job -> ExecLog : LOG outcome='TIMEOUT' {config_id, timeout_sec}
+    Job -> AlertMgr : ALERT: rule timeout \u2014 {rule_id}
+    Job -> Job : Continue to next rule (non-blocking)
+
+  else Execution ERROR
+    Job -> ExecLog : LOG outcome='ERROR' {config_id, error_msg}
+    Job -> AlertMgr : ALERT: execution failed \u2014 {rule_id}
+    Job -> Job : Continue to next rule (non-blocking)
+
+  else check_result = FAIL \u2014 violation threshold exceeded
+
+    Job -> ExecLog : LOG outcome='FAIL'\n{config_id, violation_rate, z_score, psi,\n dimension, severity, samples_json}
+
+    Job -> AlertMgr : VIOLATION: {config_id}\n dimension={check_dimension}\n metric={violation_rate|z_score|psi|lag_hrs}\n severity={CRITICAL|WARNING|INFO}
+    activate AlertMgr
+
+    AlertMgr -> AnomalyDB : INSERT DIGITAL_DATA_ANOMALIES\n{check_date, table_name, check_name,\n check_dimension, failure_category,\n z_score, psi, violation_pct,\n severity, context_json, run_id}
+    note right of AlertMgr
+      failure_category set per dimension:
+      FRESHNESS     \u2192 FRESHNESS_DRIFT
+      COMPLETENESS  \u2192 NULL_SPIKE
+      CONSISTENCY   \u2192 REFERENTIAL_BREAK
+      TIMELINESS    \u2192 FRESHNESS_DRIFT
+      VALIDITY      \u2192 CUSTOM_SQL_FAIL
+      VOLUME_DRIFT  \u2192 VOLUME_DROP
+      DATA_DRIFT    \u2192 DISTRIBUTION_SHIFT
+      BEHAVIOUR_DRIFT \u2192 SCHEMA_CHANGE (DML)
+      SCHEMA        \u2192 SCHEMA_CHANGE
+      \u2192 pre-populated for D2 Drift Classifier
+    end note
+
+    alt on_failure_action = ALERT
+      AlertMgr -> Notify : Alert owner\n{rule_id, dimension, metric, samples}
+    else on_failure_action = BLOCK
+      AlertMgr -> Job    : BLOCK \u2014 halt downstream pipeline
+      AlertMgr -> Notify : P1 critical alert + block notification
+    else on_failure_action = ESCALATE
+      AlertMgr -> Notify : Escalate to Tech Lead + Data Governance
+    else on_failure_action = LOG
+      AlertMgr -> ExecLog : Log only (no notification)
+    end
+
+    activate Notify
+    Notify --> AlertMgr : {Email \u2713, Jira ticket \u2713}
+    deactivate Notify
+    deactivate AlertMgr
+
+  else check_result = PASS
+
+    Job -> ExecLog : LOG outcome='PASS'\n{config_id, dimension, duration_ms}
+
+  end
+
+  Job -> RuleDB : UPDATE anomaly_check_config\nSET last_run_at=NOW(), last_run_status={result}\nWHERE config_id={config_id}
+
+end
+
+== [4] Baseline Update (after all checks complete) ==
+
+note right of Job
+  After every run: update rolling baselines in table_daily_metrics
+  so next run has fresh Z-score and PSI reference points.
+end note
+
+Job -> MetricsDB : UPSERT table_daily_metrics\n{table, date, row_count, dist_snapshots[],\n write_ops_count, null_rates[], freshness_ts}\nWHERE metric_date = CURRENT_DATE
+note right of MetricsDB
+  Baselines use EWMA (Exponentially Weighted Moving Average):
+  new_baseline = \u03b1 * today_value + (1-\u03b1) * old_baseline  (\u03b1 = 0.1)
+  stddev updated with Welford online algorithm.
+  PSI baseline = last stable distribution snapshot (last PASS date).
+end note
+
+== [5] Post-Execution Summary & D2 Handover ==
+
+Job -> ExecLog  : Write run summary\n{run_id, total_rules, pass/fail/error/timeout counts,\n violations_by_dimension{}, dbu_cost, duration_sec}
+
+Job -> RuleDB   : Validate completeness\n(all is_active configs were picked up)
+
+alt Any FAIL anomalies written to DIGITAL_DATA_ANOMALIES
+
+  Job -> D2 : Signal D2 Diagnosis Engine\n(anomaly records pending diagnosis_status='PENDING')
+  note right of D2
+    D2 picks up via:
+    SELECT * FROM DIGITAL_DATA_ANOMALIES
+    WHERE diagnosis_status = 'PENDING'
+    ORDER BY severity DESC, detected_at ASC
+    D2 runs independently; Job does not wait.
+  end note
+
+end
+
+Job --> Trigger : JOB COMPLETE\n{rules_run: N, violations: M,\n by_dimension: {}, duration: Xs}
+deactivate Job
+
+@enduml

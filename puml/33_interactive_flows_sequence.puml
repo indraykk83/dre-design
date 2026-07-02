@@ -1,0 +1,262 @@
+@startuml 33_interactive_flows_sequence
+!theme plain
+title DRE 3D Framework -- Interactive Flows (Rule Authoring + Diagnosis Query)
+
+skinparam sequence {
+  ArrowColor #546E7A
+  LifeLineBorderColor #B0BEC5
+  ParticipantBorderColor #90A4AE
+  ParticipantBackgroundColor #ECEFF1
+  BoxBorderColor #CFD8DC
+}
+
+box "User Layer" #FFF3E0
+  actor "User" as User
+end box
+
+box "Databricks Apps (Frontend)" #E3F2FD
+  participant "Chatbot UI\n(Streamlit)" as UI
+end box
+
+box "LangGraph Orchestration" #E8F5E9
+  participant "LangGraph\nOrchestrator" as LG
+  participant "Intent Router\nAgent" as IntentAgent
+  participant "Retrieval\nAgent" as RetrievalAgent
+  participant "SQL Generator\nAgent" as SQLAgent
+  participant "Log Analysis\nAgent" as LogAgent
+end box
+
+box "AI & RAG" #FFF8E1
+  participant "Mosaic AI\nLLM Endpoint" as LLM
+  participant "Databricks\nAI Search" as VS
+end box
+
+box "Validation Pipeline" #FFCDD2
+  participant "Security\nGuard" as SecGuard
+  participant "Governance\nLayer" as GovLayer
+  participant "SQL\nOptimizer" as SQLOpt
+  participant "Duplicate\nDetector" as DupDetect
+  participant "SQL\nValidator" as SQLVal
+end box
+
+box "Unity Catalog Delta" #E3F2FD
+  database "anomaly_check_config" as RuleDB
+  database "incident_context +\nevidence_log" as IncidentDB
+  database "agent_session_log" as SessionLog
+end box
+
+box "External Systems" #FFF9C4
+  participant "Jira" as Jira
+end box
+
+==INTERACTIVE FLOW 1: Rule Authoring==
+
+User -> UI : "Create null check for customer.email"
+activate UI
+
+UI -> LG : {user_query, session_id}
+activate LG
+
+LG -> SessionLog : Log session start
+LG -> IntentAgent : classify_intent(query)
+activate IntentAgent
+
+IntentAgent -> LLM : "Classify: READ or WRITE intent?"
+LLM --> IntentAgent : "WRITE: Rule creation"
+
+IntentAgent -> LLM : "Extract entities:\ntable, column, check_type"
+LLM --> IntentAgent : {table: "customer",\ncolumn: "email",\ncheck_type: "null_rate"}
+
+IntentAgent --> LG : Intent: RULE_CREATE\nEntities: {table, column, check_type}
+deactivate IntentAgent
+
+LG -> RetrievalAgent : retrieve_context(entities, check_type)
+activate RetrievalAgent
+
+RetrievalAgent -> VS : CAG: Load static context
+VS --> RetrievalAgent : {supported_checks.md,\nsecurity_patterns.json,\npii_catalog.json}
+
+RetrievalAgent -> VS : CRAG: embed_and_search(\n"null_rate customer email",\ntop_k=8,\nfilter={doc_type: "sql_pattern"})
+VS --> RetrievalAgent : Top-8 chunks\n(confidence: 0.87 HIGH)
+
+RetrievalAgent --> LG : Context assembled\n(CAG + CRAG)
+deactivate RetrievalAgent
+
+LG -> SQLAgent : generate_sql(context, entities)
+activate SQLAgent
+
+SQLAgent -> LLM : Generate SQL\n(grounded by CAG+CRAG)
+LLM --> SQLAgent : SQL + explanation
+
+SQLAgent --> LG : Generated SQL
+deactivate SQLAgent
+
+LG -> SecGuard : validate_security(sql)
+activate SecGuard
+SecGuard -> SecGuard : Check SELECT-only,\nforbidden keywords
+SecGuard --> LG : PASSED
+deactivate SecGuard
+
+LG -> GovLayer : check_governance(table, column)
+activate GovLayer
+GovLayer -> RuleDB : Query PII catalog
+RuleDB --> GovLayer : table.email = PII
+GovLayer --> LG : PII flag\n(requires DataGov approval)
+deactivate GovLayer
+
+LG -> SQLOpt : optimize_sql(sql, table)
+activate SQLOpt
+SQLOpt -> RuleDB : Query UC metadata
+RuleDB --> SQLOpt : Schema + partition info
+SQLOpt -> LLM : Optimize query plan
+LLM --> SQLOpt : Optimized SQL + cost estimate
+SQLOpt --> LG : Optimized (cost: 2.3 DBU)
+deactivate SQLOpt
+
+LG -> DupDetect : check_duplicate(sql, table, column)
+activate DupDetect
+DupDetect -> VS : Vector search (similar rules)
+VS --> DupDetect : Top-5 candidates
+DupDetect -> LLM : Semantic comparison
+LLM --> DupDetect : No duplicate (similarity < 85%)
+DupDetect --> LG : NO_DUPLICATE
+deactivate DupDetect
+
+LG -> SQLVal : validate_sql(optimized_sql)
+activate SQLVal
+SQLVal -> RuleDB : DESCRIBE table
+RuleDB --> SQLVal : Schema confirmed
+SQLVal -> LLM : Logical validation
+LLM --> SQLVal : Valid (quality: 9.2/10)
+SQLVal --> LG : VALID
+deactivate SQLVal
+
+LG -> RuleDB : INSERT rule\n(status: PENDING_APPROVAL,\nis_active: false)
+RuleDB --> LG : rule_id: DQ_20260702_001
+
+LG -> Jira : Create approval ticket\n(requires DataGov approval)
+Jira --> LG : ticket_id: TDA-5678
+
+LG -> SessionLog : Log session complete\n(success)
+
+LG --> UI : {rule_id, status: "Pending Approval",\napproval_sla: "48h", ticket_id}
+deactivate LG
+
+UI --> User : "✓ Rule DQ_20260702_001 created\nApproval request: TDA-5678\nSLA: 48 hours"
+deactivate UI
+
+note right
+  <b>Interactive Flow 1 Complete</b>
+  
+  User creates rule via chatbot
+  LangGraph orchestrates agents
+  Multi-layer validation
+  Approval routed via policy
+  
+  A2A Communication:
+  - Agents share state via LangGraph
+  - No direct agent-to-agent calls
+end note
+
+==INTERACTIVE FLOW 2: Diagnosis Query==
+
+User -> UI : "Why did customer pipeline fail yesterday?"
+activate UI
+
+UI -> LG : {user_query, session_id}
+activate LG
+
+LG -> SessionLog : Log session start
+LG -> IntentAgent : classify_intent(query)
+activate IntentAgent
+
+IntentAgent -> LLM : "Classify: READ or WRITE?"
+LLM --> IntentAgent : "READ: Diagnosis query"
+
+IntentAgent -> LLM : "Extract entities:\npipeline_id, date_range"
+LLM --> IntentAgent : {pipeline: "customer",\ndate: "yesterday"}
+
+IntentAgent --> LG : Intent: DIAGNOSIS_QUERY\nEntities: {pipeline, date}
+deactivate IntentAgent
+
+LG -> LogAgent : analyze_incident(pipeline, date)
+activate LogAgent
+
+LogAgent -> IncidentDB : Query incident_context\nWHERE pipeline_id LIKE '%customer%'\nAND detected_at >= yesterday
+
+IncidentDB --> LogAgent : Matching incidents (2)
+
+LogAgent -> IncidentDB : Load evidence_bundle\nFOR incident_id
+
+IncidentDB --> LogAgent : {job_log_ref, delta_history,\nroot_cause, resolution}
+
+LogAgent -> VS : RAG: Search incident_kb\n(similar incidents)
+VS --> LogAgent : Historical patterns (3)
+
+LogAgent -> LLM : Summarize diagnosis\n(evidence + context + history)
+
+LLM --> LogAgent : "Pipeline failed at 14:00 UTC due to\nschema mismatch. Column 'email' was\nrenamed to 'email_address'.\nRoot cause: Deployment at 13:45.\nResolution: Schema migration applied.\nStatus: Resolved at 14:23 UTC."
+
+LogAgent --> LG : Structured diagnosis response
+deactivate LogAgent
+
+LG -> SessionLog : Log session complete\n(diagnosis retrieved)
+
+LG --> UI : {diagnosis_summary, evidence_refs,\ntimeline, resolution_status}
+deactivate LG
+
+UI --> User : "Pipeline failed due to schema mismatch...\n\n📋 Root Cause: Column renamed\n⏰ Failed: 14:00 UTC\n✓ Resolved: 14:23 UTC\n\n[View Evidence] [View Timeline]"
+deactivate UI
+
+note right
+  <b>Interactive Flow 2 Complete</b>
+  
+  User queries past incidents
+  LangGraph routes to LogAgent
+  Agent retrieves evidence from Delta
+  RAG searches incident_kb
+  LLM summarizes for user
+  
+  A2A Communication:
+  - LangGraph orchestrates
+  - Agent reads Delta directly
+  - RAG provides context
+end note
+
+legend right
+  <b>Interactive Flows Summary</b>
+  
+  <b>Flow 1: Rule Authoring (WRITE)</b>
+    User → UI → LangGraph → Agents
+    → (Intent Router → Retrieval → SQL Generator)
+    → LLM + AI Search (CAG + CRAG)
+    → Validation Pipeline (5 stages)
+    → Delta (PENDING_APPROVAL)
+    → Jira (Approval Request)
+  
+  <b>Flow 2: Diagnosis Query (READ)</b>
+    User → UI → LangGraph → Agents
+    → (Intent Router → Log Analysis)
+    → Delta (incident_context + evidence_log)
+    → AI Search (incident_kb)
+    → LLM (Summarize)
+    → UI (Human-readable response)
+  
+  <b>Key Characteristics:</b>
+  - <b>Synchronous:</b> User waits for response
+  - <b>Stateful:</b> LangGraph maintains session state
+  - <b>Multi-agent:</b> Specialized agents per task
+  - <b>A2A via State:</b> Agents don't call each other
+  - <b>LLM-intensive:</b> Reasoning at every step
+  - <b>RAG-grounded:</b> CAG + CRAG ensure accuracy
+  
+  <b>Technologies:</b>
+  - Databricks Apps (UI)
+  - LangGraph (Orchestration)
+  - Mosaic AI (LLM)
+  - AI Search (RAG)
+  - Unity Catalog (Data)
+  - External APIs (Jira)
+endlegend
+
+@enduml

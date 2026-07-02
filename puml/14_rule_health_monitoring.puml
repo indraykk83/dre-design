@@ -1,0 +1,114 @@
+@startuml 14_Rule_Health_Monitoring
+!theme plain
+title 3D Data Quality Framework -- Rule Health & KPI Monitoring
+
+skinparam backgroundColor #F8F9FA
+skinparam rectangle {
+  RoundCorner 8
+  BorderColor #90A4AE
+  FontSize 10
+}
+skinparam database {
+  BackgroundColor #E3F2FD
+  BorderColor #1565C0
+}
+skinparam arrow {
+  Color #546E7A
+  FontSize 9
+}
+
+' ========== DATA SOURCES ==========
+rectangle "Execution Data Sources" as DataSrc #FFF3E0 {
+  database "check_execution_log\n(results per run)" as ExecLog
+  database "anomaly_check_config\n(rule metadata)" as RuleDB
+  database "DIGITAL_DATA_ANOMALIES\n(anomaly events)" as AnomLog
+  database "table_daily_metrics\n(baseline signals)" as DailyMetrics
+}
+
+' ========== HEALTH METRICS ENGINE ==========
+rectangle "Health Metrics Engine  (Databricks Workflows -- daily)" as MetricsEngine #E3F2FD {
+
+  rectangle "Rule Performance Tracker\n----------------------------\n- Avg / p95 execution time per rule\n- DBU cost per rule (trend)\n- Timeout frequency\n- Cluster resource contention" as PerfTracker #BBDEFB
+
+  rectangle "Violation Trend Analyser\n----------------------------\n- Violation rate over time (7d / 30d)\n- Anomaly spikes vs baseline\n- False positive estimation\n- Breach frequency by rule" as TrendAnalyser #BBDEFB
+
+  rectangle "Rule Quality Scorer\n----------------------------\n- Last 30-day pass rate\n- Noise score (frequent tiny violations)\n- Staleness (not run in N days)\n- Duplicate / redundancy detection" as QualityScorer #BBDEFB
+
+  rectangle "Coverage Analyser\n----------------------------\n- Tables with no DQ rules (gaps)\n- PII columns without null / format check\n- Critical tables with low rule coverage\n- Rules by data domain" as CoverageAnalyser #BBDEFB
+}
+
+' ========== HEALTH STORE ==========
+database "dq_health_metrics\n(Delta -- partitioned by date)" as HealthStore #E8F5E9
+
+' ========== DASHBOARDS ==========
+rectangle "Monitoring Dashboards  (Databricks SQL / Genie)" as Dashboards #FCE4EC {
+
+  rectangle "Rule Execution Dashboard\n----------------------------\n- Rules passed / failed / skipped today\n- Violation heatmap by table / domain\n- Execution duration trend\n- DBU cost by rule + total" as ExecDash #F8BBD0
+
+  rectangle "Rule Health Dashboard\n----------------------------\n- Active / Inactive / Pending rules\n- Stale rules (>7 days no run)\n- Noisy rules (suggest threshold review)\n- Coverage gaps -- unprotected tables" as HealthDash #F8BBD0
+
+  rectangle "Governance Dashboard\n----------------------------\n- Rules pending approval + SLA status\n- Approval turnaround time (avg)\n- Audit trail completeness\n- Environment promotion pipeline" as GovDash #F8BBD0
+
+  rectangle "Trend & Insight Dashboard\n----------------------------\n- Violation trends (7d / 30d / 90d)\n- DRRI score trend over time\n- Top 10 most-violated rules\n- AI suggestions: new rules to add" as TrendDash #F8BBD0
+
+  rectangle "Executive Mission Scorecard\n----------------------------\n- Data Availability (95% -> 97-98%)\n- MTTD (48h -> 4-8h)\n- SLA Compliance (60% -> 80-88%)\n- Manual Ops Effort (50% -> 30-35%)" as ExecDash #F8BBD0
+}
+
+' ========== AUTOMATED ACTIONS ==========
+rectangle "Automated Remediation Actions" as AutoActions #E8EAF6 {
+  rectangle "Auto-disable noisy rules\n(>50% false positive 7d rolling)\nNotify owner for review" as AutoDisable
+  rectangle "Stale rule warning\n(not executed >7 days)\nCreate DataOps ticket" as StaleWarn
+  rectangle "Coverage gap alert\n(critical table with zero rules)\nSuggest rules to Data Engineer" as CoverageAlert
+  rectangle "Performance circuit breaker\n(rule consistently >timeout)\nAuto-disable + P1 alert" as PerfBreaker
+}
+
+' ========== FLOWS ==========
+ExecLog          --> PerfTracker
+ExecLog          --> TrendAnalyser
+ExecLog          --> QualityScorer
+AnomLog          --> TrendAnalyser
+DailyMetrics     --> TrendAnalyser
+RuleDB           --> QualityScorer
+RuleDB           --> CoverageAnalyser
+
+PerfTracker      --> HealthStore
+TrendAnalyser    --> HealthStore
+QualityScorer    --> HealthStore
+CoverageAnalyser --> HealthStore
+
+HealthStore      --> ExecDash
+HealthStore      --> HealthDash
+HealthStore      --> GovDash
+HealthStore      --> TrendDash
+HealthStore      --> ExecDash
+
+QualityScorer    --> AutoDisable
+QualityScorer    --> StaleWarn
+CoverageAnalyser --> CoverageAlert
+PerfTracker      --> PerfBreaker
+
+note right of TrendAnalyser
+  DRRI (Data Reliability Risk Index)
+  Calculated daily:
+  DRRI = 1 - (violated_rules / total_active_rules)
+  Target: DRRI > 0.95
+  Feeds into DRE 3D Business KPI
+end note
+
+note right of ExecDash
+  12-month executive targets:
+  - MTTD: 48h -> 4-8h
+  - SLA compliance: 60% -> 80-88%
+  - Data availability: 95% -> 97-98%
+  - Manual ops effort: 50% -> 30-35%
+end note
+
+note right of CoverageAnalyser
+  Coverage Score:
+  = rules_covering_critical_tables
+    / total_critical_tables * 100
+  Target: >90% coverage on Gold tables
+  Gap report sent weekly to Data Governance
+end note
+
+@enduml

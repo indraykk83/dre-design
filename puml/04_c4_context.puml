@@ -1,0 +1,113 @@
+@startuml 04_C4_Context
+title C4 Model - Level 1: System Context\n3D Data Quality Framework
+
+skinparam backgroundColor #FAFAFA
+skinparam defaultFontName Segoe UI
+skinparam rectangle {
+  RoundCorner 10
+  BorderColor #90A4AE
+  FontColor #263238
+}
+skinparam actor {
+  BorderColor #455A64
+  FontColor #263238
+}
+skinparam package {
+  BorderColor #B0BEC5
+  BackgroundColor #FFFFFF
+}
+skinparam note {
+  BackgroundColor #FFF9C4
+  BorderColor #F9A825
+}
+
+left to right direction
+
+' -----------------------------------------------------
+' BUSINESS PROBLEM (why this platform exists)
+' -----------------------------------------------------
+note as BizProblem
+  <b>Business Problem We Are Solving</b>
+  -------------------------------------------------------------------------
+  adidas Digital Data has 3,032 production tables.
+  Today only 332 (11%) have any DQ coverage.
+  The 9,500 checks that exist are configured MANUALLY
+  by a small team -- creating a bottleneck and a fragile process.
+
+  Consequences:
+    - MTTD = 48 hours         -> data issues reach consumers before detection
+    - SLA compliance = 60%    -> 4 in 10 data products miss quality commitments
+    - Manual ops = 50% effort -> engineers spend half their time on toil, not value
+    - Onboarding = 3-6 months -> new data products take too long to get DQ coverage
+    - Revenue at risk          -> $500K-$2M MCM revenue loss from data unavailability
+
+  Root cause:
+    No self-service. No automation. No intelligent baseline learning.
+    Rules require expert SQL knowledge and manual approval chains.
+
+  What the platform delivers:
+    OK Any stakeholder creates rules in natural language -- no SQL expertise needed
+    OK AI-assisted SQL generation, validation and tuning
+    OK Automated DRE 3D detection (D1), diagnosis (D2) and deflection (D3)
+    OK Coverage: 11% -> 90%+ of critical Gold tables within 12 months
+    OK MTTD: 48h -> 4-8h    |    SLA compliance: 60% -> 80-88%
+    OK 40% toil reduction = 8-10 FTE equivalent freed for innovation
+  -------------------------------------------------------------------------
+end note
+
+' -----------------------------------------------------
+' STAKEHOLDERS
+' -----------------------------------------------------
+package "Who Uses the Platform" {
+  actor DE as "Data Engineer"
+  actor BA as "Business Analyst"
+  actor PO as "Product Owner"
+  actor TL as "Tech Lead"
+  actor DG as "Data Governance"
+  actor DO as "DataOps"
+  actor EX as "Exec Leadership"
+}
+
+note bottom of PO
+  Any stakeholder can create DQ rules
+  via the chatbot -- not just engineers.
+  The platform adapts to the user role
+  and data product context.
+end note
+
+' -----------------------------------------------------
+' THE PLATFORM
+' -----------------------------------------------------
+rectangle DQA as "3D Data Quality Framework\n----\nSelf-service, AI-assisted data quality management platform\non Databricks. Replaces manual, expert-only rule authoring\nwith natural language creation open to all stakeholders.\n\nCore capabilities:\n  Rule creation    -- NL chat, LLM SQL generation, trend scoring\n  Rule governance  -- approval workflows, audit trail, versioning\n  DRE 3D execution -- D1 Detect, D2 Diagnose, D3 Deflect\n  Intelligent agents -- Profiler, Drift Classifier, Lineage Tracer,\n                        Segment Slicer, Evidence Retriever,\n                        Playbook Compiler, State Validator,\n                        Circuit Breaker, Approval Gate,\n                        Domain Executors\n\nChatbot Q&A (ask in plain English):\n  What is the DRRI score of product X?\n  What is the blast radius of this anomaly?\n  Show rule execution results for table Y\n  Which tables have no DQ coverage?\n  What violated rules ran today?"
+
+' -----------------------------------------------------
+' EXTERNAL SYSTEMS (real, exist today or in roadmap)
+' -----------------------------------------------------
+package "External Systems" {
+  rectangle DBX as "Databricks Platform\n(compute, Workflows,\nDelta Lake, Unity Catalog)"
+  rectangle LLM as "Mosaic AI / LLM\n(SQL generation, NLP,\ntrend scoring, Q&A)"
+  rectangle UC  as "Unity Catalog\n(metadata, governance,\ndoc volumes)"
+  rectangle NOTIFY as "Notification Services\n(Email + Jira auto-tickets)"
+  rectangle DATA as "Source Data Tables\n(Delta Lake Gold/Silver/Bronze\n3,032 production tables)"
+  rectangle EVID as "D2 Evidence Sources\n(Confluence runbooks, GitHub\npipeline code, ITSM incidents)"
+}
+
+' -----------------------------------------------------
+' RELATIONSHIPS
+' -----------------------------------------------------
+DE --> DQA : Creates/manages rules, tunes SQL\nasks: results, coverage gaps, blast radius
+BA --> DQA : Creates rules in natural language\nasks: DRRI score, blast radius, trend score
+PO --> DQA : Creates & approves rules for schemas\nasks: product health KPIs, rule status
+TL --> DQA : Creates/reviews rules, tunes SQL\nasks: blast radius, technical validity
+DG --> DQA : Creates compliance rules\nasks: audit trail, SLA history, lineage
+DO --> DQA : Emergency disable, schedule manage\nasks: execution failures, job run status
+EX --> DQA : Asks: DRRI score, impact summary\nbusiness outcomes vs 12-month targets
+
+DQA --> DBX    : Runs on -- compute, storage, workflows
+DQA --> LLM    : NLP, SQL generation, Q&A, trend scoring
+DQA --> UC     : Stores rules, docs, versions, audit logs
+DQA --> NOTIFY : Violation alerts + Jira ticket creation
+DQA --> DATA   : Executes read-only DQ SQL checks
+DQA --> EVID   : D2 reads job logs, DESCRIBE HISTORY, runbooks,\ncode + prior ITSM incidents to build prescriptions
+
+@enduml

@@ -1,0 +1,92 @@
+@startuml 09_Rule_Lifecycle
+!theme plain
+title 3D Data Quality Framework - Rule Lifecycle (State Diagram)
+
+skinparam state {
+  BackgroundColor #ECEFF1
+  BorderColor #90A4AE
+  ArrowColor #546E7A
+  StartColor #4CAF50
+  EndColor #F44336
+}
+skinparam note {
+  BackgroundColor #FFF9C4
+  BorderColor #F9A825
+}
+
+[*] --> DRAFT : User creates rule via Agent\n(validated, trend-scored)
+
+DRAFT --> PENDING_APPROVAL : Submitter != owner\n-> submitted for review
+
+DRAFT --> ACTIVE : Submitter = owner\n-> auto-approved
+
+DRAFT --> [*] : User cancels before\nsubmission
+
+PENDING_APPROVAL --> ACTIVE    : PO / Tech Lead approves
+PENDING_APPROVAL --> REJECTED  : PO / Tech Lead rejects\n(reason required)
+PENDING_APPROVAL --> DRAFT     : Sent back for revision\n(with feedback)
+
+note right of PENDING_APPROVAL
+  SLA Enforcement (Maintenance Job):
+  - 24 hr  -> Send reminder to approver
+  - 48 hr  -> Escalate to Tech Lead
+  - 72 hr  -> Escalate to Data Governance
+  - 96 hr  -> Auto-return to DRAFT; submitter
+              notified with SLA breach reason
+end note
+
+PENDING_APPROVAL --> DRAFT : SLA breach (96 h+)\nauto-returned to submitter
+
+REJECTED --> DRAFT : User revises and\nresubmits (new version)
+
+ACTIVE --> PENDING_APPROVAL    : Rule updated by\nnon-owner (version bump)
+ACTIVE --> DISABLED            : Owner / Admin\nmanually disables
+ACTIVE --> DEPRECATED          : Superseded by\nnewer version
+ACTIVE --> DISABLED_EMERGENCY  : DataOps emergency\nkill-switch
+
+note right of ACTIVE
+  Execution Cycle:
+  (1) Trigger (schedule / event)
+  (2) Read from anomaly_check_config
+  (3) Execute SQL (read-only)
+  (4) Evaluate violation threshold
+  (5) Log to check_execution_log
+  (6) Alert on violation
+end note
+
+DISABLED --> ACTIVE            : Re-enabled by owner\n+ reason logged
+DISABLED --> ARCHIVED          : Inactive for 90+ days\n(auto-cleanup job)
+
+DISABLED_EMERGENCY --> ACTIVE  : Incident resolved\nowner re-enables + post-mortem
+DISABLED_EMERGENCY --> ARCHIVED : Permanently retired\nafter investigation
+
+DEPRECATED --> ARCHIVED        : Manually archived\nor auto-cleanup (30 days)
+
+ARCHIVED --> [*] : Deleted after\nretention period (7 years)
+
+note bottom of DISABLED_EMERGENCY
+  Instant disable capability for DataOps/Admin.
+  Preserves full audit trail -- cannot be deleted
+  while in this state. Requires incident ticket.
+end note
+
+note left of ARCHIVED
+  Archived rules are read-only.
+  Accessible for audit/compliance queries.
+  Retention: 7 years (configurable).
+  Stored in cold Delta table partition.
+end note
+
+legend right
+  |= Status           |= Execution? |= Editable? |
+  | DRAFT             | No          | Yes        |
+  | PENDING_APPROVAL  | No          | No         |
+  | ACTIVE            | Yes         | Owner only |
+  | DISABLED          | No          | Owner only |
+  | DISABLED_EMERGENCY| No          | No         |
+  | DEPRECATED        | No          | No         |
+  | REJECTED          | No          | Yes (revise)|
+  | ARCHIVED          | No          | No         |
+endlegend
+
+@enduml

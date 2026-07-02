@@ -1,0 +1,293 @@
+@startuml 35_swimlane_component_responsibilities
+!theme plain
+title DRE 3D Framework -- Swimlane Diagram: Component Responsibilities
+
+|#E3F2FD|User & Frontend|
+start
+:User submits\nNL query;
+:Chatbot UI\n(Databricks Apps)\nDisplays response;
+
+|#E8F5E9|LangGraph Orchestration|
+:LangGraph receives\nuser message;
+:Route to appropriate\nagent based on intent;
+:Manage session state\nacross agent calls;
+:Aggregate agent\nresponses;
+:Return structured\nresponse to UI;
+
+|#C8E6C9|Intent Router Agent|
+:Classify intent:\nREAD / WRITE / AMBIGUOUS;
+:Extract entities:\ntable, column, check_type;
+:Detect ambiguity\nand clarify;
+
+|#DCEDC8|Retrieval Agent|
+:Load CAG context\n(static catalogs);
+:Execute CRAG retrieval\n(dynamic patterns);
+:Evaluate confidence:\nHIGH/MEDIUM/LOW;
+if (Confidence?) then (MEDIUM)
+  :Rewrite query\nand retry;
+else (HIGH)
+  :Use retrieved context;
+endif
+
+|#E1BEE7|SQL Generator Agent|
+:Generate SQL\ngrounded by\nCAG + CRAG context;
+:Provide explanation\nfor generated SQL;
+
+|#FFCDD2|Security Guard|
+:Enforce SELECT-only;
+:Block forbidden keywords:\nDROP, INSERT, DELETE;
+:Detect injection patterns;
+if (Security violation?) then (YES)
+  :Reject SQL;
+  stop
+else (NO)
+  :Pass to next layer;
+endif
+
+|#FFF9C4|Governance Layer|
+:Query PII catalog;
+:Check compliance\nrequirements;
+:Determine approval level:\nOwner / PO+TL / DataGov;
+
+|#BBDEFB|SQL Optimizer Agent|
+:Query UC metadata\n(schema, partitions);
+:Add partition filters;
+:Optimize query plan;
+:Estimate cost (DBU);
+
+|#FFE082|Duplicate Detector|
+:Vector search\nfor similar rules;
+:LLM semantic\ncomparison;
+if (Duplicate found?) then (YES)
+  :Return existing rule;
+  stop
+else (NO)
+  :Continue to validation;
+endif
+
+|#C5E1A5|SQL Validator|
+:Rule-based:\nSyntax + schema checks;
+:LLM-based:\nLogical validation;
+if (Valid?) then (NO)
+  :Reject SQL;
+  stop
+else (YES)
+  :Pass to approval;
+endif
+
+|#F8BBD0|Approval Gateway|
+if (PII or non-owner?) then (YES)
+  :Route to PO/TL/DataGov;
+  :Send Jira ticket\n+ Email;
+  :Wait for approval\n(SLA: 48h);
+else (NO - Owner)
+  :Auto-approve;
+endif
+:INSERT rule to Delta\n(is_active based on approval);
+
+|#E3F2FD|Unity Catalog Delta|
+:Store rule in\nanomaly_check_config;
+:Log in audit table;
+:Update session log;
+
+|#E3F2FD|User & Frontend|
+:Display confirmation\nto user;
+stop
+
+note right
+  <b>Interactive Flow Complete</b>
+  Rule created and stored
+  Approval routed via policy
+end note
+
+|#FFCDD2|D1 Detection (Workflow)|
+start
+:Cron schedule\nOR upstream job trigger;
+:Read active rules\nfrom Delta;
+:Load baselines\nfrom metrics table;
+:Execute DQ checks:\n- Z-score\n- Null rate\n- Freshness\n- Drift;
+if (Anomaly detected?) then (YES)
+  :Write to\nDIGITAL_DATA_ANOMALIES;
+  :Write to\nincident_context;
+  :Send alert\n(Jira + Email);
+  :Trigger D2 workflow;
+else (NO)
+  :Log PASS;
+  stop
+endif
+
+|#F8BBD0|D2 Diagnosis (Workflow)|
+:Read incident_context\n(status: PENDING);
+:Classify signal:\nPipeline vs Data\nInfra vs Code;
+
+|#FFF9C4|Evidence Retriever Agent|
+:Retrieve job logs\n(Jobs API);
+:Query Delta history\n(DESCRIBE HISTORY);
+:Search runbooks\n(Confluence);
+:Search code\n(GitHub);
+:Query prior incidents\n(ITSM);
+:RAG: Search incident_kb\n(vector search);
+
+|#FFF8E1|Deployment Correlator|
+:Query deployment_registry\n(recent changes);
+:Correlate with\nincident timing;
+:Identify code/config changes;
+
+|#E1BEE7|Playbook Compiler Agent|
+:LLM: Compile evidence\ninto playbook;
+:Generate root cause\nanalysis;
+:Generate prescription\n(fix recommendation);
+:Write evidence_bundle\nto Delta;
+:Update incident_context\n(READY_FOR_DEFLECTION);
+:Trigger D3 workflow;
+
+|#CE93D8|D3 Deflection (Workflow)|
+:Read evidence_bundle\nfrom Delta;
+
+|#FFF9C4|State Validator Agent|
+:Verify corruption\nstill present;
+if (Already resolved?) then (YES)
+  :Mark RESOLVED_EXTERNALLY;
+  stop
+else (NO)
+  :Continue to\ncircuit breaker;
+endif
+
+|#FFCDD2|Circuit Breaker Agent|
+:Query remediation_policy;
+:Check blast_radius;
+:Check PII flag;
+:Check fix risk;
+if (High risk?) then (YES)
+  :Route to Approval Gate;
+else (NO - Auto-fix allowed)
+  :Skip approval;
+endif
+
+|#F8BBD0|Approval Gate Agent|
+:LLM: Format diagnostic\nsummary;
+:Send Jira ticket\n+ Email;
+:Wait for approval\n(SLA: 48h);
+
+|#E1BEE7|Domain Executor Agent|
+:Execute approved fix:\n- Rollback deployment\n- Schema migration\n- Pipeline restart\n- Data backfill;
+:E2E verification\n(re-run checks);
+if (Fix successful?) then (YES)
+  :Mark RESOLVED;
+else (NO)
+  :Mark REMEDIATION_FAILED;
+  :Escalate to L2 support;
+  stop
+endif
+
+|#C8E6C9|Feedback Learner Agent|
+:Update incident_kb\n(resolved case);
+:Update baselines\n(feedback to D1);
+:Calibrate policy\n(auto-fix eligibility);
+:Send notification\nto user;
+stop
+
+legend right
+  <b>Swimlane Diagram: Component Responsibilities</b>
+  
+  <b>Interactive Path (Top):</b>
+  User → UI → LangGraph → Agents
+  → Validation Pipeline (6 layers)
+  → Approval Gateway → Delta
+  
+  <b>Async Path (Bottom):</b>
+  D1 (Detection)
+  → D2 (Diagnosis: Evidence + Playbook)
+  → D3 (Deflection: Approval + Fix + Feedback)
+  
+  <b>Key Responsibilities by Component:</b>
+  
+  <b>User & Frontend:</b>
+  - User interaction
+  - Display responses
+  
+  <b>LangGraph Orchestration:</b>
+  - Route intents
+  - Manage state
+  - Coordinate agents
+  
+  <b>Intent Router Agent:</b>
+  - Classify READ/WRITE
+  - Extract entities
+  
+  <b>Retrieval Agent:</b>
+  - CAG (static)
+  - CRAG (dynamic + confidence gate)
+  
+  <b>SQL Generator Agent:</b>
+  - Generate grounded SQL
+  
+  <b>Security Guard:</b>
+  - SELECT-only enforcement
+  - Injection detection
+  
+  <b>Governance Layer:</b>
+  - PII detection
+  - Approval routing
+  
+  <b>SQL Optimizer Agent:</b>
+  - Query optimization
+  - Cost estimation
+  
+  <b>Duplicate Detector:</b>
+  - Semantic similarity (RAG + LLM)
+  
+  <b>SQL Validator:</b>
+  - Syntax + schema (rule)
+  - Logic (LLM)
+  
+  <b>Approval Gateway:</b>
+  - Policy-based routing
+  - SLA enforcement
+  
+  <b>Unity Catalog Delta:</b>
+  - Persistent storage
+  - State management
+  
+  <b>D1 Detection:</b>
+  - Execute DQ checks
+  - Detect anomalies
+  - Trigger D2
+  
+  <b>Evidence Retriever:</b>
+  - Multi-source evidence
+  - RAG from incident_kb
+  
+  <b>Deployment Correlator:</b>
+  - Code/config correlation
+  
+  <b>Playbook Compiler:</b>
+  - LLM reasoning
+  - Root cause + prescription
+  
+  <b>State Validator:</b>
+  - Verify corruption present
+  
+  <b>Circuit Breaker:</b>
+  - Risk assessment
+  - Policy enforcement
+  
+  <b>Approval Gate:</b>
+  - Human-in-loop gate
+  
+  <b>Domain Executor:</b>
+  - Automated remediation
+  - Verification
+  
+  <b>Feedback Learner:</b>
+  - Update knowledge base
+  - Calibrate policy
+  - Close loop to D1
+  
+  <b>Communication Patterns:</b>
+  - Interactive: LangGraph state
+  - Async: Delta tables + triggers
+  - External: REST/MCP adapters
+endlegend
+
+@enduml

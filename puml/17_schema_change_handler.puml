@@ -1,0 +1,226 @@
+@startuml 17_Schema_Change_Handler
+!theme plain
+
+skinparam backgroundColor #F5F7FA
+skinparam defaultFontName Arial
+skinparam defaultFontSize 11
+skinparam Padding 5
+skinparam ArrowThickness 1.5
+
+skinparam title {
+  FontSize 17
+  FontStyle bold
+  FontColor #1A237E
+  BackgroundColor #E8EAF6
+  BorderColor #3F51B5
+  BorderThickness 2
+}
+
+skinparam sequence {
+  ArrowColor #455A64
+  LifeLineBorderColor #B0BEC5
+  ParticipantBorderColor #90A4AE
+  ParticipantBackgroundColor #ECEFF1
+  BoxBorderColor #CFD8DC
+}
+
+skinparam note {
+  BackgroundColor #FFF8E1
+  BorderColor #FFB300
+  FontColor #4E342E
+  FontSize 10
+  BorderThickness 1.5
+}
+
+title <b>3D Data Quality Framework  \u00b7  Schema Change Handler</b>\n<size:12>Schema Change Detector \u2192 Rule Impact Analysis \u2192 Owner Notification \u2192 Rule Triage \u2192 Resolution</size>
+
+participant "Schema Change\nDetector Job\n(Databricks Workflow)" as SCD
+participant "Rule Impact\nAnalyser"                              as RIA
+participant "DQ Backend\nApp"                                    as Backend
+database    "anomaly_check_config\n(Delta)"                      as RuleDB
+database    "rule_audit_log\n(Delta)"                            as AuditDB
+database    "data_catalog\n(Unity Catalog)"                      as Catalog
+participant "Notification\nDispatcher"                           as Notify
+actor       "Rule Owner /\nTech Lead"                            as Owner
+participant "Genie Space\n(DQ Assistant Chat)"                   as Genie
+
+== [SCH-0] Schema Change Detection ==
+
+note over SCD
+  Schema Change Detector runs on schedule (every 6 hours)
+  AND on-event (UC ALTER TABLE / DROP COLUMN event hook).
+  Detects:
+  \u2022 Column renamed         \u2022 Column dropped
+  \u2022 Data type changed      \u2022 Table renamed / dropped
+  \u2022 Partition key changed  \u2022 Constraint removed
+  Source: Unity Catalog INFORMATION_SCHEMA + AUDIT_LOG.
+end note
+
+SCD -> Catalog : QUERY INFORMATION_SCHEMA.COLUMNS\nfor registered DQ tables\nCOMPARE with last_known_schema snapshot
+activate SCD
+Catalog --> SCD : {changed_tables[], change_details[]}
+
+SCD -> Catalog : QUERY SYSTEM.ACCESS.AUDIT\nWHERE action_name IN\n('alterTable','dropColumn','renameColumn')\nAND event_time > last_check_timestamp
+Catalog --> SCD : {ddl_events[]}
+
+SCD --> SCD : Merge + deduplicate detected changes\nBuild change manifest:
+note right of SCD
+  change_manifest entry:
+  {
+    table_name:   "gold.customer",
+    change_type:  "COLUMN_RENAMED",
+    old_name:     "customer_email",
+    new_name:     "email_address",
+    changed_at:   "2026-06-18T08:00Z",
+    changed_by:   "data_engineer@adidas.com"
+  }
+end note
+
+== [SCH-1] Rule Impact Analysis ==
+
+SCD -> RIA : For each change in manifest\nfind all affected active rules
+activate RIA
+deactivate SCD
+
+RIA -> RuleDB : SELECT config_id, rule_name, check_type,\n       column_name, custom_sql, owner_email\nFROM   anomaly_check_config\nWHERE  table_name = ? AND is_active = true
+
+RuleDB --> RIA : affected_rules[]
+
+RIA --> RIA : Classify each rule's impact:
+note right of RIA
+  Impact Classification:
+  \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+  BROKEN    -- rule directly references changed element
+              (column_name matches old name, or
+               custom_sql contains old column name)
+  AT_RISK   -- rule references same table; column_name
+              matches but change_type = TYPE_CHANGED
+  UNAFFECTED-- rule on same table but different column
+  \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+end note
+
+alt No rules affected
+
+  RIA -> AuditDB : LOG: SCHEMA_CHANGE_NO_IMPACT\n{table, change_type, changed_at, timestamp}
+  note right of RIA: No action needed.\nChange manifest archived.
+
+else Rules affected
+
+  RIA -> RuleDB  : UPDATE anomaly_check_config\nSET  impact_status = 'BROKEN' | 'AT_RISK',\n     schema_change_id = ?,\n     flagged_at = NOW()\nWHERE config_id IN (affected_rule_ids)
+
+  alt Any BROKEN rules found
+
+    RIA -> RuleDB : UPDATE anomaly_check_config\nSET  is_active = false,\n     status = 'DISABLED',\n     disable_reason = 'SCHEMA_CHANGE_BROKEN'\nWHERE impact_status = 'BROKEN'
+
+    RIA -> AuditDB : LOG: RULES_DISABLED_SCHEMA_CHANGE\n{rule_ids[], table, change_detail, timestamp}
+    note right of RIA #FFCDD2
+      BROKEN rules are immediately disabled
+      to prevent silent failures.
+      STATUS = DISABLED (not EMERGENCY -- owner
+      can re-enable after fix without incident ticket).
+    end note
+
+  end
+
+  == [SCH-2] Owner Notification ==
+
+  RIA -> Notify : Dispatch schema change alert
+  activate Notify
+  deactivate RIA
+
+  Notify -> Owner : Email + Jira ticket per affected owner:
+  note right of Notify
+    Subject: "Action required -- schema change affects your DQ rules"
+
+    Table:    gold.customer
+    Change:   COLUMN_RENAMED  customer_email \u2192 email_address
+    Changed:  2026-06-18T08:00Z  by data_engineer@adidas.com
+
+    Affected Rules:
+    \u2022 [BROKEN]   DQ_20260601_001  null_check on customer_email
+                                   \u2192 Auto-disabled. Fix required.
+    \u2022 [BROKEN]   DQ_20260510_004  custom_sql references customer_email
+                                   \u2192 Auto-disabled. Fix required.
+    \u2022 [AT_RISK]  DQ_20260312_009  completeness check on same table
+                                   \u2192 Still active. Review recommended.
+
+    [Open Rule Repair in Genie]
+    SLA to fix BROKEN rules: 48 hours
+  end note
+
+  deactivate Notify
+
+  == [SCH-3] Owner Rule Triage in Genie ==
+
+  Owner -> Genie : Open rule repair session\n"Show me rules broken by schema change on gold.customer"
+  activate Genie
+
+  Genie -> RuleDB : SELECT * FROM anomaly_check_config\nWHERE impact_status IN ('BROKEN','AT_RISK')\n  AND owner_email = ?\nORDER BY impact_status DESC
+  RuleDB --> Genie : broken_and_at_risk_rules[]
+
+  Genie --> Owner : Show impact summary with guided repair options:\n  For each BROKEN rule:\n  Option A -- Auto-fix (rename column reference)\n  Option B -- Manually edit rule SQL\n  Option C -- Retire rule (no longer needed)
+
+  == [SCH-4] Rule Resolution ==
+
+  alt Option A -- Auto-fix column reference
+
+    Owner -> Genie : "Auto-fix rule DQ_20260601_001"
+    Genie -> Backend : invoke_tool: dq_backend.repair_rule\n{rule_id, old_column: 'customer_email',\n new_column: 'email_address'}
+    activate Backend
+
+    Backend -> Backend : Replace column reference in:\n  \u2022 column_name field\n  \u2022 custom_sql (regex safe replace)\n  \u2022 Re-run SQL Validator + Security Guard
+
+    alt Validation passes
+
+      Backend -> RuleDB  : UPDATE anomaly_check_config\nSET  column_name      = 'email_address',\n     custom_sql       = updated_sql,\n     is_active         = true,\n     status            = 'ACTIVE',\n     impact_status     = 'REPAIRED',\n     version_id        = version_id + 1
+      Backend -> AuditDB : LOG: RULE_REPAIRED_AUTO\n{rule_id, old_col, new_col,\n repaired_by: owner, timestamp}
+      Backend --> Genie  : Rule repaired and re-activated
+      Genie --> Owner    : Rule DQ_20260601_001 repaired\n  Column reference updated: customer_email \u2192 email_address\n  Status: ACTIVE  |  Version: {new_version}
+
+    else Validation fails (e.g. new column has different type)
+
+      Backend --> Genie  : Auto-fix failed -- type mismatch\nManual edit required
+      Genie --> Owner    : Cannot auto-fix -- please edit manually
+
+    end
+
+    deactivate Backend
+
+  else Option B -- Manual rule edit
+
+    Owner -> Genie : Edit rule SQL or metadata manually\n(same flow as rule creation WRITE path)
+    note right of Genie: Rule re-enters full VALIDATE flow:\n  Security Guard \u2192 SQL Validator \u2192\n  Duplicate Detector \u2192 Metadata \u2192\n  Approval Gateway (if non-owner edit)
+
+    Genie -> Backend : invoke_tool: dq_backend.update_rule\n{rule_id, updated_payload}
+    Backend -> RuleDB : UPDATE + version_id bump\nstatus = 'PENDING_APPROVAL' (if non-owner)\n        or 'ACTIVE' (if owner self-approves)
+    Backend -> AuditDB : LOG: RULE_UPDATED_SCHEMA_FIX\n{rule_id, editor, version_id, timestamp}
+
+  else Option C -- Retire broken rule
+
+    Owner -> Genie : "Retire rule DQ_20260601_001 -- column no longer exists"
+    Genie -> Backend : invoke_tool: dq_backend.deprecate_rule\n{rule_id, reason: 'schema_change_column_dropped'}
+    Backend -> RuleDB : UPDATE anomaly_check_config\nSET  status        = 'DEPRECATED',\n     is_active      = false,\n     impact_status  = 'RETIRED',\n     deprecated_by  = owner_id,\n     deprecated_at  = NOW()
+    Backend -> AuditDB : LOG: RULE_DEPRECATED_SCHEMA_CHANGE\n{rule_id, reason, deprecated_by, timestamp}
+    Genie --> Owner : Rule retired and archived\nSLA clock cleared
+
+  end
+
+  deactivate Genie
+
+  == [SCH-5] SLA Enforcement for Unresolved Broken Rules ==
+
+  note over RIA, Owner
+    Rule Maintenance Job monitors BROKEN rules for SLA compliance:
+    \u250c\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2510
+    \u2502  +24 hrs  \u2192 Reminder to rule owner                       \u2502
+    \u2502  +48 hrs  \u2192 Escalate to Tech Lead + DataOps              \u2502
+    \u2502  +72 hrs  \u2192 Escalate to Data Governance                  \u2502
+    \u2502  +96 hrs  \u2192 Rule auto-archived (BROKEN rules with        \u2502
+    \u2502           no owner action archived after 96h)             \u2502
+    \u2514\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2518
+    All escalations + auto-archive actions logged to rule_audit_log.
+  end note
+
+end
+
+@enduml

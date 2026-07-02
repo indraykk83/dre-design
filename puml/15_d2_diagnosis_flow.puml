@@ -1,0 +1,271 @@
+@startuml 15_D2_Diagnosis_Flow
+!theme plain
+
+skinparam backgroundColor #F5F7FA
+skinparam defaultFontName Arial
+skinparam defaultFontSize 11
+skinparam Padding 5
+skinparam ArrowThickness 1.5
+
+skinparam title {
+  FontSize 17
+  FontStyle bold
+  FontColor #1A237E
+  BackgroundColor #E8EAF6
+  BorderColor #3F51B5
+  BorderThickness 2
+}
+
+skinparam sequence {
+  ArrowColor #455A64
+  ActorBorderColor #263238
+  LifeLineBorderColor #B0BEC5
+  ParticipantBorderColor #90A4AE
+  ParticipantBackgroundColor #ECEFF1
+  BoxBorderColor #CFD8DC
+}
+
+skinparam note {
+  BackgroundColor #FFF8E1
+  BorderColor #FFB300
+  FontColor #4E342E
+  FontSize 10
+  BorderThickness 1.5
+}
+
+title <b>3D Data Quality Framework  \u00b7  D2 Diagnosis Engine</b>\n<size:12>Drift Classifier \u2192 Lineage Tracer \u2192 Segment Slicer \u2192 Evidence Retriever \u2192 Playbook Compiler \u2192 Prescription Router</size>
+
+participant "D1 Anomaly\nHandover"           as D1
+participant "Drift\nClassifier"              as DC
+participant "Lineage\nTracer"                as LT
+participant "Segment\nSlicer"                as SS
+participant "Evidence\nRetriever"            as ER
+participant "Playbook\nCompiler"             as PC
+participant "Prescription\nRouter"           as PR
+database    "DIGITAL_DATA_ANOMALIES\n(Delta)" as AnomalyDB
+database    "table_daily_metrics\n(Delta)"    as MetricsDB
+database    "data_catalog\n(Unity Catalog)"   as Catalog
+database    "playbook_store\n(UC Volume)"     as PlaybookDB
+database    "check_execution_log\n(Delta)"    as ExecLog
+database    "diagnosis_evidence_log\n(Delta)" as EvidenceDB
+participant "Job Run Logs\n(Jobs API 2.1)"   as JobLogs
+participant "DESCRIBE HISTORY\n(Delta log)"  as DeltaHist
+participant "Runbooks\n(Confluence + UC Vol)" as Runbooks
+participant "GitHub Repo\n(pipeline code)"   as GitRepo
+participant "ITSM Tickets\n(prior incidents)" as ITSM
+participant "D3 Deflection\nEngine"          as D3
+participant "Notification\nDispatcher"       as Notify
+
+== [D2-0] Anomaly Handover from D1 ==
+
+D1 -> AnomalyDB : Anomaly record ingested\nSELECT top-N undiagnosed anomalies\nWHERE diagnosis_status = 'PENDING'
+activate D1
+AnomalyDB --> D1 : {anomaly_id, rule_id, table_name,\n column_name, violation_pct,\n severity, z_score, detected_at}
+deactivate D1
+
+D1 -> DC : Trigger diagnosis pipeline\n{anomaly_id, violation_context}
+activate DC
+
+== [D2-1] Drift Classifier -- Map Anomaly to Failure Category ==
+
+note right of DC
+  Classifies anomaly into a Data Failure category:
+  \u2022 VOLUME_DROP     -- row count below expected band
+  \u2022 SCHEMA_CHANGE   -- column type / name changed
+  \u2022 FRESHNESS_DRIFT -- data not updated on schedule
+  \u2022 DISTRIBUTION_SHIFT -- statistical dist. changed
+  \u2022 REFERENTIAL_BREAK -- FK / join key missing
+  \u2022 CUSTOM_SQL_FAIL -- user-defined assertion failed
+  \u2022 NULL_SPIKE       -- null rate > threshold
+  \u2022 OUTLIER_SURGE    -- Z-score > 3\u03c3 cluster
+  Classification uses rule_type + violation metadata
+  (rule-based mapping; no ML required).
+end note
+
+DC -> MetricsDB  : SELECT baseline_mean, baseline_stddev,\n       last_7d_avg, last_30d_avg\nFROM   table_daily_metrics\nWHERE  table_name = ? AND column_name = ?
+MetricsDB --> DC : Historical baseline stats
+
+DC -> ExecLog    : SELECT COUNT(*), fail_reason, error_code\nFROM   check_execution_log\nWHERE  rule_id = ? AND run_date > NOW() - 7 DAYS
+ExecLog --> DC   : Recent execution pattern
+
+DC --> DC : Map failure_category + severity_band\n(CRITICAL | HIGH | MEDIUM | LOW)
+
+DC -> AnomalyDB  : UPDATE DIGITAL_DATA_ANOMALIES\nSET failure_category = ?,\n    severity_band = ?,\n    diagnosis_status = 'CLASSIFYING'
+
+== [D2-2] Lineage Tracer -- Identify Root Table & Impact Blast Radius ==
+
+DC -> LT : Handover: {table_name, failure_category}
+deactivate DC
+activate LT
+
+note right of LT
+  Traverses Unity Catalog lineage graph:
+  \u2022 Upstream  -- find source tables that feed this table
+  \u2022 Downstream -- find all tables / reports / jobs
+                  consuming this table
+  \u2022 Identifies "Patient Zero": first table in the
+    upstream chain that shows the same anomaly pattern.
+  Uses UC LINEAGE_EVENTS API.
+end note
+
+LT -> Catalog : GET /api/2.0/lineage-tracking/\n       table-lineage?table_name={fqn}&\n       direction=UPSTREAM&depth=5
+Catalog --> LT : upstream_tables[], source_jobs[]
+
+LT -> Catalog : GET /api/2.0/lineage-tracking/\n       table-lineage?table_name={fqn}&\n       direction=DOWNSTREAM&depth=5
+Catalog --> LT : downstream_tables[], downstream_dashboards[]
+
+LT -> MetricsDB : Cross-check upstream tables for\nsame anomaly pattern in last 48h\nSELECT table_name, violation_pct, detected_at
+MetricsDB --> LT : upstream_anomalies[]
+
+LT --> LT : Score upstream tables by anomaly\ncorrelation -> identify Patient Zero
+
+LT -> AnomalyDB : UPDATE: blast_radius_json = {\n  patient_zero: {table, anomaly_type, detected_at},\n  upstream_affected: [...],\n  downstream_affected: [...],\n  estimated_jobs_impacted: N\n}
+
+== [D2-3] Segment Slicer -- Isolate Exact Micro-Segment ==
+
+LT -> SS : Handover: {table_name, failure_category, blast_radius}
+deactivate LT
+activate SS
+
+note right of SS
+  Slices data along known dimension columns to
+  isolate which subset drives the anomaly.
+  Dimension priority order (per domain config):
+    Trading:    market, brand, channel, season
+    DTC:        market, platform (app/web), OS, device
+    CRM/adiC:   market, membership_tier, acquisition_src
+    Payments:   market, payment_method, currency
+  Uses Chi-square test for categorical dimensions.
+  Uses Mann-Whitney U for numerical dimensions.
+end note
+
+SS -> MetricsDB  : SELECT dimension columns for table\nFROM domain_dimension_config\nWHERE domain = ? AND table_name = ?
+MetricsDB --> SS : priority_dimensions[]
+
+SS -> MetricsDB  : SELECT {dimension}, COUNT(*), violation_pct\nFROM   table_daily_metrics\nWHERE  table_name = ? AND metric_date = TODAY()\nGROUP  BY {dimension}
+MetricsDB --> SS : dimension_breakdown[]
+
+SS --> SS : Run statistical significance test\nper dimension slice\n\u2192 rank by chi-square / Mann-Whitney p-value
+
+SS -> AnomalyDB  : UPDATE: micro_segment = {\n  dimension: 'market',\n  value: 'DE',\n  violation_lift: 3.2,\n  confidence: 0.97,\n  sample_size: 142000\n}
+
+== [D2-4] Evidence Retriever -- Gather Diagnostic Evidence for Prescription ==
+
+SS -> ER : Handover: {failure_category, patient_zero, micro_segment}
+deactivate SS
+activate ER
+
+note right of ER
+  Collects real-world evidence from 5 sources so the
+  Playbook Compiler can build a grounded prescription:
+  1. Job run logs    -- stderr/stdout + error stack of the
+                        pipeline that last wrote the table
+  2. DESCRIBE HISTORY -- recent Delta operations (WRITE / MERGE /
+                        DELETE / OPTIMIZE / schema change) + operator
+  3. Runbooks        -- Confluence pages + UC Volume /runbooks/
+                        matching failure_category + domain
+  4. GitHub codebase -- transform source that produces the table
+                        (locate likely offending logic / commits)
+  5. ITSM tickets    -- prior resolved incidents, same
+                        failure_category + table -> reuse resolution
+  Each hit is relevance-scored; low-confidence sources dropped.
+end note
+
+ER -> JobLogs   : GET /api/2.1/jobs/runs/get-output\n?run_id={source_job_run}
+JobLogs --> ER  : error_trace, exit_code, log_tail
+
+ER -> DeltaHist : DESCRIBE HISTORY {table_fqn} LIMIT 20
+DeltaHist --> ER : recent_operations[], operator, commit_ts
+
+ER -> Runbooks  : Search Confluence + UC Volume /runbooks/\nWHERE category = failure_category AND domain = ?
+Runbooks --> ER : matched_runbook_refs[]
+
+ER -> GitRepo   : Code search: table_fqn + transform name\n(recent commits touching this pipeline)
+GitRepo --> ER  : candidate_source_files[], recent_commits[]
+
+ER -> ITSM      : Search prior incidents\nWHERE failure_category = ? AND table = ? AND status = RESOLVED
+ITSM --> ER     : similar_incidents[], past_resolutions[]
+
+ER --> ER : Score + rank evidence\n-> build evidence_bundle
+
+ER -> EvidenceDB : INSERT diagnosis_evidence_log\n{anomaly_id, job_log_ref, delta_history,\n runbook_refs, code_refs, similar_incidents,\n evidence_score, gathered_at}
+
+ER -> AnomalyDB : UPDATE: evidence_summary_json = {...},\n              diagnosis_status = 'EVIDENCE_GATHERED'
+
+== [D2-5] Playbook Compiler -- Build Reproducible Remediation Plan ==
+
+ER -> PC : Handover: {failure_category, patient_zero,\n           micro_segment, evidence_bundle}
+deactivate ER
+activate PC
+
+note right of PC
+  Looks up matching playbook template in UC Volume:
+  /Volumes/{catalog}/playbooks/{failure_category}.json
+  Each playbook template contains:
+  \u2022 remediation_steps[]   -- ordered action list
+  \u2022 escalation_path       -- who to notify per severity
+  \u2022 auto_fix_eligible      -- boolean + conditions
+  \u2022 rollback_procedure     -- how to reverse the fix
+  \u2022 sla_target_hours       -- expected resolution time
+  \u2022 evidence_required[]    -- what to capture for audit
+  Template is GROUNDED by the evidence_bundle from D2-4
+  (job logs, Delta history, runbooks, code refs, prior ITSM fix).
+  Playbooks are versioned (JSON, stored in UC Volume).
+  Maintained by Data Governance + domain Tech Leads.
+end note
+
+PC -> PlaybookDB : LOAD playbook template\n/playbooks/{failure_category}.json
+PlaybookDB --> PC : playbook_template
+
+PC --> PC : Instantiate template with:\n  patient_zero, micro_segment, blast_radius,\n  evidence_bundle, submitter context\n\u2192 concrete prescription JSON
+
+PC -> AnomalyDB : UPDATE: prescription = {\n  playbook_id: 'PB-NULL-001',\n  playbook_version: '2.1',\n  steps: [...],\n  auto_fix_eligible: true,\n  estimated_resolution_hours: 4,\n  sla_target: NOW() + 4h,\n  evidence_bundle: [...]\n}
+
+== [D2-6] Prescription Router -- Route to D3 Deflection ==
+
+PC -> PR : Handover: {prescription, severity_band, auto_fix_eligible}
+deactivate PC
+activate PR
+
+PR --> PR : Route decision:\n  CRITICAL + auto_fix -> D3 Circuit Breaker\n  HIGH + auto_fix     -> D3 Domain Executor\n  ANY + manual_fix    -> D3 Approval Gate\n  LOW                 -> Notify owner only
+
+alt CRITICAL or HIGH -- auto-fix eligible
+
+  PR -> D3 : Dispatch prescription to D3 Deflection Engine\n{prescription, priority, domain_executor_target}
+  note right of PR: Anomaly enters D3 immediately.\nSLA clock starts for resolution.
+
+else Manual fix required
+
+  PR -> Notify : Alert rule owner + Tech Lead\n(Email + Jira with prescription link)
+  note right of PR: Owner opens prescription in Genie.\nManual remediation steps guided by playbook.
+
+else LOW severity
+
+  PR -> Notify : Informational alert to owner only\n(Email digest, no Jira)
+
+end
+
+PR -> AnomalyDB : UPDATE: diagnosis_status = 'DIAGNOSED',\n              routed_to = 'D3_DEFLECTION | MANUAL | NOTIFY',\n              diagnosed_at = NOW()
+
+deactivate PR
+
+== [D2 Output Summary] ==
+
+note over D1, D3
+  D2 Diagnosis produces a fully-enriched anomaly record in DIGITAL_DATA_ANOMALIES:
+  +-----------------------------------------------------------------+
+  | failure_category   : DISTRIBUTION_SHIFT                         |
+  | severity_band      : HIGH                                       |
+  | patient_zero       : bronze.fact_orders (upstream)              |
+  | blast_radius       : 4 downstream tables, 2 dashboards          |
+  | micro_segment      : market=DE, platform=app (97% confidence)   |
+  | evidence_bundle    : job-log + Delta history + runbook + code   |
+  |                      ref + 2 prior ITSM fixes (evidence_score)   |
+  | prescription       : PB-DIST-003 v1.4 (auto-fix eligible)       |
+  | diagnosis_status   : DIAGNOSED                                  |
+  | routed_to          : D3_DEFLECTION                              |
+  +-----------------------------------------------------------------+
+  Evidence is persisted in diagnosis_evidence_log for audit + reuse.
+end note
+
+@enduml

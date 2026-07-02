@@ -1,0 +1,307 @@
+@startuml 30_rag_validation_pipeline
+!theme plain
+title DRE 3D Framework -- RAG + Multi-Layer Validation Pipeline\nCAG + CRAG + Security + Governance + Validation + SQL Optimization
+
+skinparam sequence {
+  ArrowColor #546E7A
+  LifeLineBorderColor #B0BEC5
+  ParticipantBorderColor #90A4AE
+  ParticipantBackgroundColor #ECEFF1
+}
+skinparam note {
+  BackgroundColor #FFFDE7
+  BorderColor #F9A825
+}
+
+participant "User" as User
+participant "Query\nOptimizer\n(LLM)" as QueryOpt
+participant "CAG\nPre-Loader\n(Static)" as CAG
+participant "CRAG\nRetrieval\nEvaluator" as CRAG
+participant "Vector Search" as VS
+participant "SQL Generator\n(LLM)" as SQLGen
+participant "Security\nGuard\n(Rule-based)" as SecGuard
+participant "Governance\nLayer\n(PII Check)" as GovLayer
+participant "SQL Optimizer\n(LLM)" as SQLOpt
+participant "Duplicate\nDetector\n(RAG + LLM)" as DupDetect
+participant "SQL Validator\n(Rule + LLM)" as SQLVal
+participant "Approval\nGateway" as Approval
+database "Delta Tables" as Delta
+
+== Stage 1: Query Understanding & Optimization ==
+
+User -> QueryOpt : Raw NL query\n"Check nulls in customer emails"
+
+note over QueryOpt
+  <b>LLM-based query optimizer</b>
+  - Extract entities (table, column, check type)
+  - Expand abbreviations
+  - Add domain context
+  - Detect ambiguity
+  - Rewrite for clarity
+end note
+
+QueryOpt -> QueryOpt : Extract:\ntable = "customer"\ncolumn = "email"\ncheck_type = "null_rate"
+
+QueryOpt -> User : Clarification needed?
+User -> QueryOpt : Confirm
+
+== Stage 2: CAG -- Static Context Pre-Load ==
+
+QueryOpt -> CAG : get_static_context()
+
+note over CAG
+  <b>Context-Augmented Generation</b>
+  Pre-loaded static docs (once per session):
+  - supported_checks.md (all valid check types)
+  - security_patterns.json (forbidden patterns)
+  - governance_rules.json (PII tables/columns)
+  ~3,200 tokens -- always in system prompt
+end note
+
+CAG --> QueryOpt : {supported_checks, security_rules, pii_catalog}
+
+== Stage 3: CRAG -- Dynamic Context Retrieval with Confidence Gate ==
+
+QueryOpt -> CRAG : retrieve_context(\nquery, table, check_type)
+
+CRAG -> VS : embed_and_search(\nquery="null_rate customer email",\ntop_k=8,\nfilter={table="customer", doc_type="sql_pattern"})
+
+VS --> CRAG : top_k chunks + similarity_scores
+
+note over CRAG
+  <b>Corrective RAG with confidence gating:</b>
+  1. Evaluate retrieval quality
+  2. Coverage score (entities present?)
+  3. Confidence = weighted avg of top-3 scores
+  
+  Thresholds:
+  - HIGH (>=0.72): use as-is
+  - MEDIUM (0.50-0.72): rewrite query + retry
+  - LOW (<0.50): keyword fallback
+end note
+
+CRAG -> CRAG : confidence = 0.85 (HIGH)
+
+CRAG --> QueryOpt : {context_chunks, confidence: HIGH}
+
+== Stage 4: SQL Generation ==
+
+QueryOpt -> SQLGen : generate_sql(\ncag_context + crag_context +\nentities + check_type)
+
+note over SQLGen
+  <b>LLM generates SQL grounded by:</b>
+  - CAG: supported check types
+  - CRAG: similar SQL patterns
+  - Entities: table_fqn, column_name
+  
+  Output: SQL + explanation
+end note
+
+SQLGen --> QueryOpt : {sql: "SELECT...", explanation: "..."}
+
+== Stage 5: Security Guard (Rule-Based) ==
+
+QueryOpt -> SecGuard : validate_security(sql)
+
+note over SecGuard
+  <b>Rule-based security checks:</b>
+  1. SELECT-only enforcement
+  2. Block forbidden keywords:
+     DROP, CREATE, ALTER, INSERT,
+     UPDATE, DELETE, TRUNCATE, EXEC
+  3. Block injection patterns:
+     xp_cmdshell, OPENROWSET, BULK
+  4. No dynamic SQL / EXEC()
+  5. No multi-statement (semicolon check)
+end note
+
+alt SQL contains forbidden pattern
+  SecGuard --> QueryOpt : REJECTED: "DROP keyword detected"
+  QueryOpt -> User : Security violation
+else Security passed
+  SecGuard --> QueryOpt : PASSED
+end
+
+== Stage 6: Governance Layer (PII & Policy Check) ==
+
+QueryOpt -> GovLayer : check_governance(sql, table, column)
+
+note over GovLayer
+  <b>Governance checks using CAG catalog:</b>
+  1. Is table PII-sensitive? (from pii_catalog)
+  2. Is column PII? (email, SSN, credit card)
+  3. Does user have data access rights?
+  4. Compliance requirements (GDPR, SOX)
+  5. Anonymization required?
+  6. Requires additional approval?
+end note
+
+GovLayer -> Delta : query: data_catalog_pii_metadata
+
+alt Table/column is PII
+  GovLayer --> QueryOpt : WARNING: PII detected\nRequires DataGovernance approval
+  QueryOpt -> QueryOpt : Set approval_level = DataGovernance
+else Not PII
+  GovLayer --> QueryOpt : PASSED
+end
+
+== Stage 7: SQL Optimization (LLM) ==
+
+QueryOpt -> SQLOpt : optimize_sql(sql)
+
+note over SQLOpt
+  <b>LLM-based SQL optimizer:</b>
+  1. Add partition filters if available
+  2. Push down predicates
+  3. Use indexed columns where possible
+  4. Estimate query cost (DBU)
+  5. Suggest LIMIT for exploratory queries
+  6. Check for Cartesian products
+  7. Validate column exists in schema
+  
+  <b>Uses Unity Catalog metadata:</b>
+  - INFORMATION_SCHEMA.COLUMNS
+  - Table statistics
+  - Partition keys
+end note
+
+SQLOpt -> Delta : query: UC metadata for table
+Delta --> SQLOpt : schema + stats
+
+SQLOpt -> SQLOpt : Add partition filter:\nWHERE event_date >= current_date - 30
+
+SQLOpt --> QueryOpt : {optimized_sql, improvements, cost_estimate}
+
+== Stage 8: Duplicate Detection (RAG + LLM Semantic Check) ==
+
+QueryOpt -> DupDetect : check_duplicate(\noptimized_sql, table, column, check_type)
+
+note over DupDetect
+  <b>Semantic + Structural duplicate check:</b>
+  1. RAG: retrieve similar active rules
+  2. LLM: compare semantic intent
+  3. Structural: same table + column + check_type?
+  4. Functional: logically equivalent SQL?
+  
+  Uses:
+  - Vector search on existing rule SQL
+  - LLM judges similarity
+end note
+
+DupDetect -> VS : embed_and_search(\nsql_embedding, top_k=5,\nfilter={table, is_active=true})
+
+VS --> DupDetect : similar_rules[]
+
+DupDetect -> DupDetect : LLM: compare intent
+
+alt Similar rule exists (>85% match)
+  DupDetect --> QueryOpt : DUPLICATE FOUND\nExisting rule: DQ_20260501_003\nSimilarity: 92%
+  QueryOpt -> User : Rule already exists.\nView existing rule?
+else No duplicate
+  DupDetect --> QueryOpt : NO_DUPLICATE
+end
+
+== Stage 9: SQL Validation (Rule-Based + LLM) ==
+
+QueryOpt -> SQLVal : validate_sql(optimized_sql)
+
+note over SQLVal
+  <b>Hybrid validation (Rule + LLM):</b>
+  
+  <b>Rule-based:</b>
+  - Syntax check (SQL parser)
+  - Table exists in UC?
+  - Column exists in table?
+  - Data type compatibility
+  - Aggregation logic valid?
+  
+  <b>LLM-based:</b>
+  - Logical correctness
+  - Does SQL match user intent?
+  - Edge case handling
+  - NULL handling correct?
+  - Threshold makes sense?
+end note
+
+SQLVal -> Delta : query: DESCRIBE table_fqn
+Delta --> SQLVal : schema
+
+alt Validation fails
+  SQLVal --> QueryOpt : INVALID: Column 'email' not found
+  QueryOpt -> User : Validation error
+else Validation passed
+  SQLVal --> QueryOpt : VALID\nQuality score: 9.2/10
+end
+
+== Stage 10: Approval Routing ==
+
+QueryOpt -> Approval : route_approval(\nrule, approval_level, pii_flag)
+
+note over Approval
+  <b>Approval routing logic:</b>
+  - Owner: auto-approve
+  - Non-owner: PO/TL approval
+  - PII table: DataGovernance approval
+  - High cost (>100 DBU): TL approval
+  - Timeout: 72h -> escalate
+end note
+
+alt PII or non-owner
+  Approval -> User : Approval request sent\nSLA: 48 hours
+else Owner + non-PII
+  Approval -> Delta : INSERT rule (is_active=true)
+  Approval -> User : Rule created successfully
+end
+
+legend right
+  <b>Summary: Multi-Layer Validation Pipeline</b>
+  
+  <b>Stage 1: Query Optimization (LLM)</b>
+    - Extracts entities, expands abbreviations
+    - Detects ambiguity, clarifies intent
+  
+  <b>Stage 2: CAG (Static Context)</b>
+    - Pre-loaded: supported checks, security rules, PII catalog
+    - Always available, no retrieval cost
+  
+  <b>Stage 3: CRAG (Dynamic Retrieval + Confidence Gate)</b>
+    - Retrieves SQL patterns, examples, contracts
+    - Confidence gating: HIGH/MEDIUM/LOW
+    - Query rewrite on MEDIUM, fallback on LOW
+  
+  <b>Stage 4: SQL Generation (LLM + CAG + CRAG)</b>
+    - LLM generates SQL grounded by context
+  
+  <b>Stage 5: Security Guard (Rule-Based)</b>
+    - SELECT-only, block DROP/INSERT/DELETE
+    - Injection pattern detection
+  
+  <b>Stage 6: Governance Layer (CAG Catalog)</b>
+    - PII detection, compliance checks
+    - Approval level routing
+  
+  <b>Stage 7: SQL Optimization (LLM + UC Metadata)</b>
+    - Add partitions, push predicates, cost estimate
+  
+  <b>Stage 8: Duplicate Detection (RAG + LLM)</b>
+    - Semantic + structural similarity
+    - Prevent redundant rules
+  
+  <b>Stage 9: SQL Validation (Rule + LLM)</b>
+    - Syntax, schema, logical correctness
+  
+  <b>Stage 10: Approval Gateway</b>
+    - Route based on owner, PII, cost
+  
+  <b>Answer: LLM or RAG for SQL validation?</b>
+  <b>BOTH:</b>
+  - <b>LLM</b> for generation, optimization, logical validation
+  - <b>RAG</b> for grounding, duplicate detection, pattern retrieval
+  - <b>Rule-based</b> for security, syntax, schema checks
+  
+  <b>CAG vs CRAG:</b>
+  - <b>CAG</b>: small static docs, always loaded
+  - <b>CRAG</b>: large dynamic corpus, confidence-gated retrieval
+endlegend
+
+@enduml

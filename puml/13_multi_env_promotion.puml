@@ -1,0 +1,120 @@
+@startuml 13_Multi_Env_Promotion
+!theme plain
+title 3D Data Quality Framework - Rule Promotion (Dev -> Prod)
+
+skinparam activity {
+  BackgroundColor #ECEFF1
+  BorderColor #90A4AE
+  ArrowColor #546E7A
+  StartColor #4CAF50
+  EndColor #F44336
+  DiamondBackgroundColor #FFF9C4
+  DiamondBorderColor #F9A825
+}
+
+|#E3F2FD| DEV Environment |
+|#FCE4EC| PRODUCTION Environment |
+|#E8F5E9| Governance Gate |
+
+start
+
+|DEV Environment|
+:Data Engineer creates DQ rule via Agent\n(status: DRAFT -> PENDING_APPROVAL -> ACTIVE);
+note right
+  DEPLOY_ENV = dev
+  Catalog: lakehouse_dev
+  Schema:  ds_tda_governance_lhdev
+end note
+
+:Rule executes in DEV via ANOMALY_DETECTION_JOB\nfor minimum 3 days of observed runs;
+
+:Review DEV execution results:\n- False positive rate\n- Execution duration (avg, p95)\n- Violation trend (stable / noisy?)\n- Cost (DBU per run);
+
+if (Rule passes DEV quality bar?) then (No)
+  :Revise rule - adjust SQL,\nthreshold or exception config;
+  note right: Loop until DEV results\nare stable and acceptable
+else (Yes)
+endif
+
+:Submit promotion request to Production\n(logged in check_execution_log /\nanomaly_check_config with DEV summary);
+
+|Governance Gate|
+:Tech Lead + Data Governance review:\n- DEV execution results (3+ days)\n- SQL + trend score\n- Performance benchmarks\n- False positive analysis\n- Compliance / PII impact (GDPR, SOX)\n- Rule classification + priority;
+
+if (Approved for Production?) then (No)
+  |DEV Environment|
+  :Receive revision feedback\nAdjust rule and re-test in DEV;
+  stop
+else (Yes)
+endif
+
+|PRODUCTION Environment|
+:Rule promoted to PROD config\n(version_id incremented\nstatus: PENDING_APPROVAL);
+note right
+  DEPLOY_ENV = prod
+  Catalog: lakehouse
+  Schema:  ds_tda_governance_lh
+end note
+
+:Product Owner final sign-off\nin PRODUCTION environment;
+
+:Rule set to is_active = true (ACTIVE)\nin anomaly_check_config;
+
+:Added to production run schedule\n(priority P1/P2/P3 as classified);
+
+:Monitoring and alerting configured:\n- Jira auto-ticket for P1/P2 violations\n- Email for P1 / P2 / P3\n- SLA tracking enabled;
+
+' --- PROD Health Check (7-day observation) -----------------------------------
+if (PROD health OK within 7 days?) then (Yes)
+
+  |Governance Gate|
+  :Promotion audit record created\n(both envs + approvers\n+ execution results documented);
+
+  stop
+
+else (No -- PROD regression detected)
+
+  |PRODUCTION Environment|
+  :Emergency disable rule in PROD\n(status -> DISABLED_EMERGENCY);
+  note right
+    SET is_active = false
+    status = DISABLED_EMERGENCY
+    rollback_reason + incident_id logged
+  end note
+
+  |Governance Gate|
+  :Raise rollback incident ticket\nNotify owner + Tech Lead + DataOps;
+
+  |PRODUCTION Environment|
+  :Notify rule owner + PO\nwith PROD failure analysis\n(execution logs, violation sample, blast radius);
+
+  |DEV Environment|
+  :Investigate root cause in DEV\nApply fix to DEV rule version\n(version_id bump);
+
+  :Re-enter DEV observation period\n(minimum 3 days from scratch);
+
+  note right
+    Rollback completes here.
+    To re-promote: restart flow from
+    "Submit promotion request to Production".
+    Previous PROD version remains DISABLED_EMERGENCY
+    until incident is formally closed.
+  end note
+
+  stop
+
+endif
+
+note right
+  Promotion Metadata Tracked
+  in anomaly_check_config (version_id):
+  -------------------------
+  - promoted_from_env (dev)
+  - promoted_by (user + approver)
+  - promotion_date
+  - dev_execution_summary (JSON)
+  - compliance_sign_off
+  - effective_prod_date
+end note
+
+@enduml

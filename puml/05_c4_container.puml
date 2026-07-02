@@ -1,0 +1,84 @@
+@startuml 05_C4_Container
+title C4 Model - Level 2: Container Diagram\n3D Data Quality Framework
+
+skinparam backgroundColor #FAFAFA
+skinparam defaultFontName Segoe UI
+skinparam rectangle {
+  RoundCorner 10
+  BorderColor #90A4AE
+  FontColor #263238
+}
+skinparam actor {
+  BorderColor #455A64
+  FontColor #263238
+}
+skinparam package {
+  BorderColor #B0BEC5
+  BackgroundColor #FFFFFF
+}
+
+left to right direction
+
+actor User as "User\n(Data Engineer / BA /\nPO / Tech Lead / Governance)"
+
+package "3D Data Quality Framework" {
+  rectangle Genie as "Genie Space\n(Mosaic AI Agent Chat)\n----------------------------\nNL Q&A + intent routing\nread-only Delta queries\napproval status tracking"
+
+  rectangle Backend as "DQ Backend App\n(Databricks App / REST)\n----------------------------\nrule CREATE / UPDATE\nSQL validate + trend score\nwrites anomaly_check_config"
+
+  rectangle LLM as "LLM Engine\n(Mosaic AI / BYOM)\n----------------------------\nintent parsing\nSQL generation and tuning\ntrend score prediction"
+
+  rectangle Validator as "Rule Validator\n(Python + SQL parser)\n----------------------------\nsecurity checks\nsyntax + schema validation\nduplicate detection"
+
+  rectangle Approval as "Approval Gateway\n(Python + Workflow)\n----------------------------\nowner/non-owner routing\nSLA reminders"
+
+  rectangle Engine as "Rule Execution Engine\n(ANOMALY_DETECTION_JOB)\n----------------------------\nschedule/event based runs\nexecutes linked configs only"
+
+  rectangle Audit as "Audit & Version Service\n(Python + Delta)\n----------------------------\nimmutable audit\nversion tracking"
+
+  rectangle NotifySvc as "Notification Dispatcher\n(Python service)\n----------------------------\npriority + dedup routing\nEmail + Jira tickets"
+
+  database RuleStore as "Rule Store\n(anomaly_check_config)"
+  database SuggestStore as "Suggestion Cache\n(check_suggestions_cache\ntable_fqn + schema_version\nsuggestions_json)"
+  database ExecStore as "Execution Store\n(check_execution_log\nDIGITAL_DATA_ANOMALIES\ntable_daily_metrics)"
+  database DocStore as "Documentation Store\n(UC Volumes)"
+
+  rectangle VectorIdx as "Vector Search Index\n(Databricks VS)\n----------------------------\nBGE-M3 embeddings\ncosine similarity search\nUC Volume chunk index\nrebuilt nightly + on change"
+
+  rectangle CRAGEval as "CRAG Retrieval Evaluator\n(Python -- DQ Backend)\n----------------------------\nscores top-k chunk relevance\nentity coverage gating\nquery rewrite on MEDIUM conf\nkeyword fallback on LOW conf\nthreshold auto-tuning per domain"
+
+  rectangle CAGLoader as "CAG Pre-Loader\n(Python -- DQ Backend)\n----------------------------\nsupported_checks.md always\ninjected into LLM system prompt\nsecurity_patterns.json\nno per-request retrieval cost"
+}
+
+rectangle NotifyExt as "Notification Services\n(Email / Jira)"
+rectangle DataSrc as "Any UC Tables\n(including tables outside\nGenie data source context)"
+rectangle LlmApi as "LLM API\n(Mosaic model serving)"
+User --> Genie : interacts via chat (NL queries + rule requests)
+Genie --> Backend : invoke UC tool for WRITE\nand table-suggestion intents
+Genie --> RuleStore : SELECT queries (read-only)
+Genie --> SuggestStore : SELECT cached suggestions\n(if cache table is in Genie data sources)
+Backend --> LLM : parse/generate/tune SQL
+Backend --> Validator : validate SQL
+Backend --> VectorIdx : embed_and_search(\nquery, top_k=8, filter={table, doc_type})
+VectorIdx --> DocStore : fetch matched chunks\nfrom UC Volume index
+VectorIdx --> CRAGEval : top_k chunks + scores
+CRAGEval --> Backend : confidence: HIGH|MEDIUM|LOW\n+ rewritten query on MEDIUM
+Backend --> CAGLoader : get_static_context()\n(once per session)
+Backend --> SuggestStore : cache lookup / upsert\nby table_fqn + schema_version
+Backend --> DataSrc : metadata read on cache miss\n(DESCRIBE HISTORY + INFORMATION_SCHEMA)
+Backend --> RuleStore : INSERT/UPDATE rules (service principal)
+Backend --> Approval : submit for approval
+
+Approval --> RuleStore : update rule status
+Approval --> NotifySvc : approval notifications
+
+Engine --> RuleStore : read linked active configs
+Engine --> DataSrc : execute read-only checks
+Engine --> ExecStore : write outcomes and anomalies
+Engine --> NotifySvc : violation alerts
+
+Audit --> ExecStore : write audit records
+NotifySvc --> NotifyExt : send email + create Jira
+LLM --> LlmApi : inference calls
+
+@enduml

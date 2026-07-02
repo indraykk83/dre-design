@@ -1,0 +1,223 @@
+@startuml 21_CRAG_Retrieval_Strategy
+!theme plain
+title 3D Data Quality Framework -- CRAG / CAG Retrieval Strategy
+
+skinparam backgroundColor #FAFAFA
+skinparam defaultFontName Segoe UI
+skinparam defaultFontSize 11
+skinparam sequence {
+  ArrowColor #546E7A
+  LifeLineBorderColor #B0BEC5
+  ParticipantBorderColor #90A4AE
+  ParticipantBackgroundColor #ECEFF1
+  BoxBorderColor #CFD8DC
+}
+skinparam note {
+  BackgroundColor #FFFDE7
+  BorderColor #F9A825
+}
+
+participant "DQ Backend\nApp" as Backend
+participant "CAG\nPre-Loader\n(static docs)" as CAG #DCEDC8
+participant "Vector Search\nIndex\n(BGE-M3)" as VectorIdx #C5CAE9
+participant "CRAG\nRetrieval\nEvaluator" as CRAG #FFCDD2
+participant "Query\nRewriter" as Rewriter #FFF9C4
+participant "LLM\nSQL Generator" as LLM #E8F5E9
+participant "Documentation\nStore\n(UC Volume)" as Docs
+
+== Step A: CAG -- Static Context Pre-Load (always runs first) ==
+
+note over CAG
+  Context-Augmented Generation (CAG):
+  Pre-loads small, stable documents ONCE per session
+  into the fixed portion of every LLM prompt.
+  No retrieval cost. No chunking errors.
+  Documents:
+    supported_checks.md  (all valid check types + rules)
+    security_patterns.json  (blocked SQL patterns)
+  Together ~3,200 tokens -- always in system prompt.
+end note
+
+Backend -> CAG : get_static_context()
+activate CAG
+CAG --> Backend : {supported_checks_text, security_patterns_text}
+deactivate CAG
+
+note right of Backend
+  CAG context injected as [SYSTEM] block
+  in every LLM call. Ensures the model
+  ALWAYS knows the check catalogue and
+  security rules -- no retrieval gap.
+end note
+
+== Step B: CRAG -- Dynamic Context Retrieval with Confidence Gate ==
+
+Backend -> VectorIdx : embed_and_search(\n  query="{check_type} {table} {column} {domain}",\n  top_k=8,\n  filter={doc_type, table_name})
+activate VectorIdx
+VectorIdx -> Docs : cosine similarity lookup\nagainst BGE-M3 chunk index
+Docs --> VectorIdx : ranked chunks[]
+VectorIdx --> Backend : top_k chunks + similarity_scores[]
+deactivate VectorIdx
+
+Backend -> CRAG : evaluate_retrieval(\n  query, top_k_chunks, scores[])
+activate CRAG
+
+note right of CRAG
+  CRAG Retrieval Evaluator:
+  Scores overall relevance of the retrieved
+  chunk set against the user query.
+  Algorithm:
+    1. Per-chunk relevance score (cosine sim)
+    2. Coverage score: key entities from
+       query covered in returned chunks?
+    3. Composite confidence = weighted avg
+       of top-3 chunk scores * coverage
+  Thresholds (configurable):
+    confidence >= 0.72  -> HIGH   -> use as-is
+    0.50 <= conf < 0.72 -> MEDIUM -> rewrite + retry
+    confidence < 0.50   -> LOW    -> fallback path
+end note
+
+CRAG --> Backend : {confidence: HIGH | MEDIUM | LOW,\n score: float,\n missing_entities: []}
+deactivate CRAG
+
+== CRAG Branch: HIGH confidence (>= 0.72) ==
+
+alt confidence == HIGH
+  note right of Backend
+    Retrieved chunks are relevant.
+    Proceed directly to SQL generation
+    with standard RAG context window.
+  end note
+  Backend -> LLM : generate_sql(\n  cag_context + rag_context)
+  activate LLM
+  LLM --> Backend : {sql, explanation}
+  deactivate LLM
+
+== CRAG Branch: MEDIUM confidence (0.50 - 0.72) -- Rewrite + Retry ==
+
+else confidence == MEDIUM
+  note right of Backend
+    Confidence uncertain. Retrieval may
+    have missed relevant context.
+    Trigger query rewrite and one retry.
+  end note
+
+  Backend -> Rewriter : rewrite_query(\n  original_query,\n  missing_entities[],\n  check_type)
+  activate Rewriter
+  note right of Rewriter
+    Query Rewriter expands the query:
+    - Adds synonyms for missing entities
+    - Includes table alias from UC metadata
+    - Adds domain glossary term expansions
+    e.g. "null check customer email"
+      -> "NULL_RATE null_check customer_email
+          gold.customer CRM PII nullable"
+  end note
+  Rewriter --> Backend : rewritten_query
+  deactivate Rewriter
+
+  Backend -> VectorIdx : embed_and_search(\n  rewritten_query, top_k=12)
+  activate VectorIdx
+  VectorIdx --> Backend : expanded top_k chunks
+  deactivate VectorIdx
+
+  Backend -> CRAG : re_evaluate(rewritten_query, chunks)
+  activate CRAG
+  CRAG --> Backend : {confidence: HIGH | LOW, score}
+  deactivate CRAG
+
+  alt re-eval confidence >= 0.50
+    Backend -> LLM : generate_sql(cag_context + expanded_rag_context)
+    activate LLM
+    LLM --> Backend : {sql, explanation,\n warning: "low_confidence_retrieval"}
+    deactivate LLM
+    note right of LLM
+      SQL generated but flagged with
+      confidence warning surfaced to user:
+      "Retrieved context was partial --
+       please review the generated SQL carefully."
+    end note
+  else re-eval still LOW
+    Backend --> Backend : escalate to LOW path
+  end
+
+== CRAG Branch: LOW confidence (< 0.50) -- Fallback ==
+
+else confidence == LOW
+  note right of Backend
+    Retrieved chunks are not relevant.
+    Two fallback options executed in order:
+    1. Keyword search (no embeddings) against
+       the same UC Volume corpus.
+    2. If still no match: ask user for DDL /
+       data contract before attempting SQL gen.
+  end note
+
+  Backend -> Docs : keyword_search(\n  terms=missing_entities[],\n  doc_types=[data_contract, sql_pattern])
+  activate Docs
+  Docs --> Backend : keyword_matched_chunks[]
+  deactivate Docs
+
+  alt keyword_matched_chunks not empty
+    Backend -> LLM : generate_sql(\n  cag_context + keyword_context,\n  low_confidence=true)
+    activate LLM
+    LLM --> Backend : {sql, explanation,\n warning: "fallback_keyword_context"}
+    deactivate LLM
+  else no context found at all
+    Backend --> Backend : return no_context_error
+    note right of Backend
+      Return structured error to Genie:
+      {error: "insufficient_context",
+       missing: [table_schema, check_definition],
+       ask_user: "Please paste the table DDL
+                  or data contract for this table."}
+    end note
+  end
+
+end
+
+== Step C: Confidence Signal Written to check_suggestions_cache ==
+
+note over Backend
+  Regardless of CRAG path taken, the confidence score
+  and retrieval quality signal are written to
+  check_suggestions_cache alongside the generated suggestion.
+  This feeds the CRAG evaluator's calibration:
+    table_fqn + schema_version -> confidence_score, path_taken,
+    chunks_used[], query_rewritten (bool), sql_accepted (bool)
+  After 30 accepted suggestions, evaluator thresholds
+  are auto-tuned per domain using the feedback signal.
+end note
+
+legend
+  <b>How to read this diagram</b>
+  -------------------------------------------------------
+  <b>WHAT:</b> Reliability layer on top of RAG for the DQ
+  rule authoring copilot. Prevents LLM from generating
+  SQL with wrong columns or unknown check types due to
+  low-quality retrieved context (hallucination risk).
+
+  <b>WHY TWO STRATEGIES?</b>
+  CAG: small, stable docs injected once per session.
+    No retrieval cost. No chunking errors. Always correct.
+  CRAG: dynamic docs scored before LLM sees them.
+    Catches bad retrieval before it causes bad SQL.
+
+  <b>HOW CRAG DECIDES</b>
+  HIGH (>=0.72): retrieved chunks are relevant -> proceed.
+  MEDIUM (0.50-0.72): expand query + retry with top-12.
+  LOW (<0.50): keyword fallback. Ask user for DDL if empty.
+
+  <b>WHAT IS ACHIEVED</b>
+  Eliminates check-type hallucinations (CAG catalogue).
+  Catches retrieval misses before SQL is generated.
+  Confidence signal enables per-domain threshold tuning.
+
+  <b>HOW IT IS MEASURED</b>
+  Avg CRAG confidence score per domain (target >0.72).
+  Query rewrite trigger rate (MEDIUM branch frequency).
+  LLM SQL acceptance rate stored in check_suggestions_cache.
+endlegend
+
+@enduml

@@ -1,0 +1,359 @@
+@startuml 26_Databricks_Native_Architecture
+!theme plain
+title DRE 3D Framework -- Databricks-Native Architecture\nDatabricks Apps + LangGraph + Mosaic AI + AI Search + Workflows
+
+skinparam backgroundColor #FAFAFA
+skinparam defaultFontSize 10
+skinparam rectangle {
+  BackgroundColor #E3F2FD
+  BorderColor #1565C0
+  RoundCorner 10
+}
+skinparam database {
+  BackgroundColor #E8F5E9
+  BorderColor #2E7D32
+}
+skinparam cloud {
+  BackgroundColor #FFF9C4
+  BorderColor #F9A825
+}
+
+left to right direction
+
+' =======================================================
+' ROW 1: USERS & FRONTEND
+' =======================================================
+
+together {
+  rectangle "Users" as USERS #FFF3E0 {
+    actor "Data\nEngineer" as DE
+    actor "Business\nAnalyst" as BA
+    actor "Product\nOwner" as PO
+    actor "Tech\nLead" as TL
+    actor "DataOps" as DO
+  }
+
+  rectangle "Frontend Layer  (Databricks Apps)" as FRONTEND #E3F2FD {
+    rectangle "DQ Chatbot UI\n(Streamlit / Gradio / React)\n------------------------\nConversational interface\nApproval dashboard\nIncident timeline\nRule browser\nAuth: Workspace SSO" as ChatUI #C5CAE9
+    
+    rectangle "Agent Observability UI\n------------------------\nTool call trace\nRetrieval quality\nAuto-fix success rate\nCost per incident" as ObsUI #BBDEFB
+  }
+}
+
+' =======================================================
+' ROW 2: AGENT ORCHESTRATION & LLM
+' =======================================================
+
+rectangle "Agent Orchestration Layer  (Databricks App Backend)" as ORCHESTRATION #E8F5E9 {
+  
+  rectangle "LangGraph Orchestrator\n------------------------\nStateful workflow graph\nIntent routing\nTool selection & execution\nA2A state passing\nSession memory management" as LangGraph #C8E6C9
+  
+  rectangle "Interactive Agents\n------------------------\nIntent Router Agent\nRetrieval Agent\nLog Analysis Agent\nSQL Generator Agent\nDiagnosis Agent\nRecommendation Agent\nApproval Agent" as InteractiveAgents #DCEDC8
+  
+  rectangle "Tool / MCP Adapter Layer\n------------------------\nJira API\nGitHub API\nConfluence API\nITSM API\nDatabricks Jobs API\nUC metadata tools" as ToolLayer #C8E6C9
+}
+
+together {
+  rectangle "AI Inference Layer  (Mosaic AI)" as AI #FFF8E1 {
+    rectangle "Model Serving Endpoint\n(Mosaic AI / DBRX / BYOM)\n------------------------\nIntent classification\nSQL generation\nDiagnosis reasoning\nSummarization\nRemediation recommendation" as LLMEndpoint #FFECB3
+    
+    rectangle "Embedding Endpoint\n(BGE-M3 / Mosaic AI)\n------------------------\nQuery embedding\nDocument embedding\nChunk embedding" as EmbedEndpoint #FFECB3
+  }
+}
+
+' =======================================================
+' ROW 3: RAG KNOWLEDGE BASE
+' =======================================================
+
+rectangle "RAG Knowledge Base  (Unity Catalog + AI Search)" as RAG #EDE7F6 {
+  
+  rectangle "Raw Knowledge Store\n(Unity Catalog Volumes)" as UCVol #E1BEE7 {
+    database "/Volumes/catalog/dq_kb/\n+-- data_contracts/\n+-- supported_checks/\n+-- sql_patterns/\n+-- examples/\n+-- domain_glossary/\n+-- runbooks/\n+-- playbooks/\n+-- sops/" as RawDocs
+  }
+  
+  rectangle "Chunked Corpus\n(Delta Tables)" as ChunkDB #E1BEE7 {
+    database "doc_chunks\n------------------------\ndoc_id, doc_type, domain\ntable_name, chunk_text\nembedding_vector\nsource_path, version" as DocChunks
+    
+    database "log_chunks\n------------------------\npipeline_id, run_id\nerror_type, log_summary\nembedding_vector\nindexed_at" as LogChunks
+    
+    database "incident_kb\n------------------------\nincident_id, root_cause\nresolution, fingerprint\nembedding_vector\nresolved_at" as IncidentKB
+  }
+  
+  rectangle "Databricks AI Search\n(Vector + Hybrid Search)\n------------------------\nSemantic similarity\nKeyword + vector hybrid\nMetadata filters\nTop-k retrieval" as AISearch #D1C4E9
+}
+
+' =======================================================
+' ROW 4: DATABRICKS LOGS AS KB SOURCE
+' =======================================================
+
+rectangle "Databricks Platform Telemetry as KB" as PLATFORM_KB #FFCDD2 {
+  
+  rectangle "Job & Pipeline Logs\n(Databricks Platform)" as JobLogs #FFF9C4 {
+    database "Job run logs\nTask logs (stdout/stderr)\nWorkflow event logs\nRetry/repair history\nDuration/SLA metrics" as JobLogSrc
+  }
+  
+  rectangle "Delta & UC Metadata\n(Databricks Platform)" as Metadata #FFF9C4 {
+    database "DESCRIBE HISTORY\nINFORMATION_SCHEMA\nLineage API\nSchema change history\nAudit logs" as MetaSrc
+  }
+  
+  rectangle "Pipeline Metadata Registry\n(Delta Table)" as PipelineReg #FFECB3 {
+    database "pipeline_registry\n------------------------\npipeline_id, job_id, owner\ndomain, criticality\nupstream/downstream deps\nexpected_schedule\nrunbook_link, repo_path\nlast_deployed_version" as PipelineMeta
+  }
+  
+  rectangle "Log Ingestion & Indexing\n(Databricks Workflow)\n------------------------\nExtract job/task errors\nChunk & embed log summaries\nWrite to log_chunks\nIndex in AI Search\nDaily refresh" as LogIngest #FFECB3
+}
+
+' =======================================================
+' ROW 5: STRUCTURED DATA LAYER
+' =======================================================
+
+rectangle "Structured Platform Data  (Unity Catalog -- Delta Tables)" as STRUCTURED_DATA #E3F2FD {
+  
+  rectangle "Rule & Config Layer" as ConfigLayer {
+    database "anomaly_check_config\n(Rule Registry)\nowner, priority, frequency\nthresholds, is_active, job_tag\nversion_id, deployment_env" as RuleDB
+    
+    database "check_suggestions_cache\n(table_fqn + schema_version\nsuggestions_json, confidence\nrefreshed_at)" as SuggestCache
+    
+    database "remediation_policy\n(pipeline_id, auto_fix_allowed\nmax_retries, approval_required\nblast_radius_threshold)" as RemediationPolicy
+  }
+  
+  rectangle "Execution & Evidence Layer" as ExecLayer {
+    database "check_execution_log\n(PASS/FAIL/ERROR/SKIP/TIMEOUT\nDRRI source)" as ExecLog
+    
+    database "DIGITAL_DATA_ANOMALIES\n(anomaly events, severity\nz_score, diagnosis_status)" as AnomDB
+    
+    database "diagnosis_evidence_log\n(job_log_ref, delta_history\nrunbook_refs, code_refs\nsimilar_incidents, evidence_score)" as EvidenceDB
+    
+    database "table_daily_metrics\n(baselines, EWMA, trend data)" as MetricsDB
+    
+    database "incident_context\n(pipeline_id, run_id, table_fqn\nerror_type, failure_class\nsignal_source, severity)" as IncidentCtx
+  }
+  
+  rectangle "Agent State & Audit Layer" as StateLayer {
+    database "agent_session_log\n(session_id, user, turns\ntool_calls, retrieval_quality)" as SessionLog
+    
+    database "tool_call_log\n(tool_name, input, output\nlatency, success)" as ToolLog
+    
+    database "rule_audit_log\n(immutable governance audit)" as AuditLog
+    
+    database "deployment_registry\n(bundle_version, git_commit\ndeployed_at, env, approver)" as DeployReg
+  }
+}
+
+' =======================================================
+' ROW 6: ASYNC EXECUTION FRAMEWORK (D1/D2/D3)
+' =======================================================
+
+rectangle "DRE 3D Execution Framework  (Databricks Workflows)" as DRE3D #E3F2FD {
+  
+  rectangle "D1  DETECTION -- Observe  [KPI: DRRI]" as D1 #FFCDD2 {
+    rectangle "Pipeline Failure Monitor\n----------------\nDatabricks Jobs API\nWorkflow event listener\nTask failure classification\nInfra vs data separation" as D1A0 #FFF9C4
+    
+    rectangle "Profiler Agent\n----------------\nProfiles data trends\nbuilds dynamic baselines\nwithout human intervention" as D1A1 #FFF9C4
+    
+    rectangle "Baseline Learner Agent\n----------------\nEWMA rolling mean\nWelford online stddev\nPSI baseline snapshots" as D1A2 #FFF9C4
+    
+    rectangle "ANOMALY_DETECTION_JOB\n----------------\nTrigger A: Scheduled cron\nTrigger B: Upstream job end\nExecutes linked configs only\nReads pipeline_registry" as DetJob #C5CAE9
+    
+    rectangle "Anomaly Checks\n(Z-score, drift, freshness\nnull rate, volume, behavioral)" as Checks #FFECB3
+  }
+  
+  rectangle "D2  DIAGNOSIS -- Diagnose + Decide" as D2 #F8BBD0 {
+    rectangle "Signal Classifier Agent\n----------------\nPipeline failure vs data anomaly\nInfra vs data vs code\nFingerprint taxonomy" as D2A0 #FFF9C4
+    
+    rectangle "Drift Classifier Agent\n----------------\nMaps anomaly to Data Failure\nFingerprint taxonomy" as D2A1 #FFF9C4
+    
+    rectangle "Lineage Tracer Agent\n----------------\nCrawls UC Lineage API\nFinds Patient Zero\nBlast radius calculation" as D2A2 #FFF9C4
+    
+    rectangle "Deployment Correlator Agent\n----------------\nRecent code changes?\nGitHub commit correlation\nBundle version delta\nPromotion history analysis" as D2A3 #FFF9C4
+    
+    rectangle "Evidence Retriever Agent\n----------------\nJob logs (Jobs API)\nDESCRIBE HISTORY\nRunbooks (Confluence+UC)\nGitHub code search\nITSM prior incidents\nRAG: incident_kb + log_chunks" as D2A4 #FFF9C4
+    
+    rectangle "Playbook Compiler Agent\n----------------\nMatch to SOP profiles\nGrounded by evidence_bundle\nJSON execution recipe" as D2A5 #FFF9C4
+    
+    rectangle "Prescription Router Agent\n----------------\nValidate token parameters\nQuery remediation_policy\nRoute to D3 or Approval" as D2A6 #FFF9C4
+  }
+  
+  rectangle "D3  DEFLECTION -- Act + Assure" as D3 #CE93D8 {
+    rectangle "State Validator Agent\n----------------\nConfirm corruption present\nPrevent redundant fixes" as D3A1 #FFF9C4
+    
+    rectangle "Circuit Breaker Agent\n----------------\nCheck remediation_policy\nblast_radius threshold\nPII table hard stop\nApproval gate routing" as D3A2 #FFF9C4
+    
+    rectangle "Approval Gate Agent\n----------------\nHuman-in-loop gate\nFormat diagnostic summary\nJira/Email approval request\n48h SLA enforcement" as D3A3 #FFF9C4
+    
+    rectangle "Domain Executor Agents\n----------------\nAuto-fix with policy gate\nPipeline restart\nSchema migration\nData backfill\nE2E verification" as D3A4 #FFF9C4
+    
+    rectangle "Feedback Learner Agent\n----------------\nFix worked/failed tracking\nRoot cause confirmed/wrong\nUpdate incident_kb\nPlaybook refinement\nPolicy calibration" as D3A5 #FFF9C4
+  }
+  
+  D1 -right-> D2 : incident_context handover
+  D2 -right-> D3 : prescription + evidence_bundle
+  D3 ..left..> D1 : feedback loop\n(update baselines + policy)
+}
+
+' =======================================================
+' ROW 7: EXTERNAL INTEGRATIONS & OUTCOMES
+' =======================================================
+
+together {
+  cloud "External Enterprise Systems" as ExtSys #FBE9E7 {
+    rectangle "Jira\n(tickets, approvals)" as Jira
+    rectangle "GitHub\n(code search, commits)" as GitHub
+    rectangle "Confluence\n(runbooks, SOPs)" as Confluence
+    rectangle "ITSM / ServiceNow\n(incident history)" as ITSM
+    rectangle "Email / Slack\n(notifications)" as Notif
+  }
+  
+  rectangle "Business Outcomes" as Outcomes #E8F5E9 {
+    rectangle "Trusted Decisions\n[DRRI >95%]" as O1 #C8E6C9
+    rectangle "Faster Resolution\n[MTTD 48h -> 4-8h]" as O2 #C8E6C9
+    rectangle "Lower Risk\n[SLA 60% -> 88%]" as O3 #C8E6C9
+    rectangle "40% Toil Reduction" as O4 #C8E6C9
+  }
+}
+
+' =======================================================
+' HIDDEN LAYOUT ANCHORS
+' =======================================================
+
+USERS       -[hidden]down-> FRONTEND
+FRONTEND    -[hidden]down-> ORCHESTRATION
+ORCHESTRATION -[hidden]down-> AI
+AI          -[hidden]down-> RAG
+RAG         -[hidden]down-> PLATFORM_KB
+PLATFORM_KB -[hidden]down-> STRUCTURED_DATA
+STRUCTURED_DATA -[hidden]down-> DRE3D
+DRE3D       -[hidden]down-> ExtSys
+
+' =======================================================
+' FLOWS -- INTERACTIVE CHATBOT PATH
+' =======================================================
+
+USERS       -down->  ChatUI       : NL query / rule request
+ChatUI      -down->  LangGraph    : User message + session state
+LangGraph   -right-> InteractiveAgents : Route to agents via state
+InteractiveAgents -down-> LLMEndpoint : Intent / SQL / reasoning
+InteractiveAgents -down-> AISearch    : embed_and_search(query, top_k=8)
+AISearch    -right-> DocChunks    : Retrieve doc chunks
+AISearch    -right-> LogChunks    : Retrieve log patterns
+AISearch    -right-> IncidentKB   : Retrieve similar incidents
+InteractiveAgents -down-> ToolLayer : External tool calls
+ToolLayer   -down->  ExtSys       : REST/MCP calls
+
+LangGraph   -down->  SessionLog   : Persist session state
+LangGraph   -down->  ToolLog      : Audit tool calls
+LangGraph   -up->    ChatUI       : Structured response
+
+' =======================================================
+' FLOWS -- RAG CORPUS BUILDING
+' =======================================================
+
+UCVol       -down->  LogIngest    : Ingest raw docs (weekly)
+JobLogSrc   -right-> LogIngest    : Ingest error logs (daily)
+MetaSrc     -right-> LogIngest    : Ingest schema history
+LogIngest   -down->  DocChunks    : Chunk + embed + write
+LogIngest   -down->  LogChunks    : Extract error patterns
+AISearch    ..>      DocChunks    : Index (auto-sync)
+AISearch    ..>      LogChunks    : Index (auto-sync)
+
+' =======================================================
+' FLOWS -- RULE AUTHORING (WRITE PATH)
+' =======================================================
+
+LangGraph   -down->  RuleDB       : INSERT approved rule\n(via backend service principal)
+LangGraph   -down->  SuggestCache : Cache suggestions
+LangGraph   -down->  AuditLog     : Immutable audit
+
+' =======================================================
+' FLOWS -- D1/D2/D3 EXECUTION (ASYNC)
+' =======================================================
+
+JobLogSrc   -down->  D1           : Pipeline failure event
+PipelineMeta -down-> D1           : Pipeline metadata context
+RuleDB      -down->  DetJob       : Read linked active configs
+MetricsDB   -down->  DetJob       : Load baselines
+DetJob      -right-> Checks       : Execute DQ checks
+DetJob      -down->  AnomDB       : Persist anomaly events
+DetJob      -down->  ExecLog      : Log PASS/FAIL/ERROR
+DetJob      -down->  IncidentCtx  : Write incident_context
+
+AnomDB      -down->  D2           : diagnosis_status=PENDING trigger
+IncidentCtx -down->  D2           : Full incident payload
+JobLogSrc   -down->  D2           : Evidence retrieval
+MetaSrc     -down->  D2           : Lineage + schema evidence
+DeployReg   -down->  D2           : Deployment correlation
+D2          -down->  EvidenceDB   : Persist evidence_bundle
+D2          -down->  IncidentKB   : Write resolved incidents (learning)
+
+EvidenceDB  -down->  D3           : Load evidence_bundle
+RemediationPolicy -down-> D3      : Query auto-fix policy
+D3          -down->  AnomDB       : SET diagnosis_status=RESOLVED
+D3          -down->  MetricsDB    : Update baseline (feedback)
+D3          -down->  IncidentKB   : Update outcome (feedback)
+
+D3          -down->  ToolLayer    : Approval / remediation actions
+ToolLayer   -down->  ExtSys       : Jira ticket / GitHub PR / restart job
+
+' =======================================================
+' FLOWS -- OBSERVABILITY
+' =======================================================
+
+SessionLog  -down->  ObsUI        : Agent trace
+ToolLog     -down->  ObsUI        : Tool performance
+ExecLog     -down->  Outcomes     : DRRI calculation
+
+' =======================================================
+' LEGEND
+' =======================================================
+
+note as Legend
+  <b>DRE 3D Framework -- Databricks-Native Architecture</b>
+  -------------------------------------------------------
+  <b>KEY CORRECTIONS FROM PRIOR DESIGN</b>
+  
+  1. <b>Chatbot UI</b>: Databricks Apps (NOT Genie Space)
+     Genie is read-only; we need full WRITE capability.
+  
+  2. <b>Orchestration</b>: LangGraph for agent workflow
+     Stateful A2A via shared LangGraph state + Delta tables.
+  
+  3. <b>RAG Strategy</b>:
+     - Raw docs in UC Volumes
+     - Chunked corpus in Delta tables
+     - Indexed in Databricks AI Search
+     - Databricks logs are a first-class KB source
+  
+  4. <b>Pipeline Intelligence</b>:
+     - Pipeline failure vs data anomaly = 2 signal types
+     - Unified incident_context object
+     - pipeline_registry for operational metadata
+     - Deployment correlation for root-cause
+  
+  5. <b>A2A Communication</b>:
+     - Interactive: LangGraph shared state
+     - Async D1/D2/D3: Delta tables + Workflow triggers
+     - External: Tool layer (REST/MCP adapters)
+  
+  6. <b>MCP / External Tools</b>:
+     - Phase 1: REST adapters in tool layer
+     - Phase 2: MCP gateway if standardization needed
+  
+  <b>WHAT IS ACHIEVED</b>
+  - Full conversational DQ copilot on Databricks Apps
+  - RAG retrieval from docs + logs + incidents
+  - Pipeline failure + data anomaly unified diagnosis
+  - Auto-remediation with policy gates
+  - Human approval for high-risk actions
+  - Continuous learning via feedback loop
+  
+  <b>HOW IT IS MEASURED</b>
+  - DRRI >95% per domain
+  - MTTD 48h -> 4-8h
+  - MTTR 4-8h -> 44min
+  - Auto-fix success rate >80%
+  - False positive rate <5%
+  - Retrieval quality avg confidence >0.72
+  - Tool call latency p95 <2s
+end note
+
+@enduml

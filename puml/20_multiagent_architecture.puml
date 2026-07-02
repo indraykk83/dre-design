@@ -1,0 +1,263 @@
+@startuml 20_MultiAgent_Architecture
+!theme plain
+title DRE 3D Framework -- Multi-Agent System Architecture on Databricks\n20+ Agents across 5 layers -- Conversational / Rule Authoring / Detection / Diagnosis / Deflection
+
+skinparam backgroundColor #FAFAFA
+skinparam linetype ortho
+skinparam rectangle {
+  RoundCorner 8
+  BorderColor #90A4AE
+  FontSize 10
+}
+skinparam database {
+  BackgroundColor #E3F2FD
+  BorderColor #1565C0
+  FontSize 10
+}
+skinparam arrow {
+  Color #546E7A
+  FontSize 9
+}
+skinparam package {
+  BorderColor #B0BEC5
+  BackgroundColor #FFFFFF
+  FontSize 11
+}
+
+top to bottom direction
+
+' ======================================================
+' LAYER 0: USERS
+' ======================================================
+
+rectangle "Users" as USERS #FFF3E0 {
+  actor "Data Engineer\nBusiness Analyst\nProduct Owner\nTech Lead\nDataOps" as USR
+  actor "External Apps\n(Web / Slack / Teams / API)" as EXT
+}
+
+' ======================================================
+' LAYER 1: CONVERSATIONAL AGENT LAYER
+' Hosted: Databricks Genie Space (Mosaic AI Agent Chat)
+' ======================================================
+
+rectangle "Layer 1 -- Conversational Agent Layer\n(Databricks Genie Space / Mosaic AI Agent Chat)" as L1 #E3F2FD {
+
+  rectangle "<b>DQ Conversational Agent</b>\n(Genie Space)\n- NL understanding\n- Context-aware Q&A\n- Approval status tracking\n- Coverage gap surfacing" as GenieAgent #C5CAE9
+
+  rectangle "<b>Intent Router</b>\n(LLM classifier)\nREAD  --> Rule Browser (SELECT on Delta)\nWRITE --> UC Function Tool invocation\nAMBIG --> Clarification prompt" as IntentRouter #BBDEFB
+
+  rectangle "<b>Rule Browser Agent</b>\n(READ-only)\n- Query anomaly_check_config\n- Fetch DIGITAL_DATA_ANOMALIES\n- Return DRRI / MTTD / SLA KPIs\n- Surfaces noisy / stale rules" as BrowserAgent #BBDEFB
+}
+
+' ======================================================
+' LAYER 2: RULE AUTHORING AGENT PIPELINE
+' Hosted: Databricks App (DQ Backend App)
+' Invoked via UC Function Tool from Genie
+' ======================================================
+
+rectangle "Layer 2 -- Rule Authoring Agent Pipeline\n(DQ Backend App -- Databricks App -- service principal WRITE access)" as L2 #E8F5E9 {
+
+  rectangle "<b>RAG Context Retriever</b>\n- Formulate semantic query\n- embed_and_search (BGE-M3, top-k=8)\n- Rank: contract + template + examples\n- Assemble LLM context window" as RAGAgent #C8E6C9
+
+  rectangle "<b>SQL Generator Agent</b>\n(Mosaic AI LLM)\n- Pattern-based SQL from NL\n- Grounded by RAG context\n- Adapts to check type taxonomy" as SQLGenAgent #C8E6C9
+
+  rectangle "<b>Security Guard Agent</b>\n- SELECT-only enforcement\n- Block injection / DDL / DML\n- PII flag from data contract\n- Returns sanitised SQL" as SecAgent #C8E6C9
+
+  rectangle "<b>SQL Validator Agent</b>\n- Syntax + schema check\n- Column / table existence\n- Cost estimate (DBU)\n- Partition alignment" as ValAgent #C8E6C9
+
+  rectangle "<b>Duplicate Detector Agent</b>\n- Structural + semantic similarity\n- Compare vs active rules\n- Return similarity score %" as DupAgent #C8E6C9
+
+  rectangle "<b>Trend Scorer Agent</b>\n(Mosaic AI LLM)\n- 30-day pass/fail history\n- Predict violation probability\n- Confidence: High/Med/Low" as TrendAgent #C8E6C9
+
+  rectangle "<b>Rule Submitter Agent</b>\n- INSERT anomaly_check_config\n- Trigger approval workflow\n- Bump version_id on edits\n- Write rule_audit_log" as SubmitAgent #C8E6C9
+
+  rectangle "<b>Check Suggestion Agent</b>\n- Enforce table_fqn format\n  catalog.schema.table\n- Cache lookup by schema_version\n- Fallback generation on miss\n- Returns applicable checks" as SuggestAgent #C8E6C9
+
+  rectangle "<b>Suggestion Cache Maintainer</b>\n- Weekly archive stale rows\n- Archive dropped tables\n- Keep cache compact" as CacheMaintAgent #C8E6C9
+}
+
+' ======================================================
+' LAYER 3: DETECTION AGENT LAYER  (D1)
+' Hosted: Databricks Workflows (ANOMALY_DETECTION_JOB)
+' ======================================================
+
+rectangle "Layer 3 -- D1 Detection Agents\n(Databricks Workflows -- ANOMALY_DETECTION_JOB)" as L3 #FFCDD2 {
+
+  rectangle "<b>Profiler Agent</b>\n- Scans all monitored tables\n- Builds dynamic profiles\n- No human intervention\n- Feeds Baseline Learner" as ProfilerAgent #FFF9C4
+
+  rectangle "<b>Baseline Learner Agent</b>\n- EWMA rolling mean (alpha=0.1)\n- Welford online stddev\n- PSI baseline snapshots\n- Writes to table_daily_metrics" as BaselineAgent #FFF9C4
+
+  rectangle "<b>Check Dispatcher Agent</b>\n- Routes by check_dimension\n- 9 dispatch paths:\n  5D + Volume/Data/Behaviour Drift\n  + Schema + Custom SQL\n- Delta Metadata Cache (TTL=run)" as DispatchAgent #FFECB3
+
+  rectangle "<b>Alert Manager Agent</b>\n- Threshold evaluation\n- Severity assignment (P1/P2/P3)\n- failure_category mapping\n- Triggers D2 handover" as AlertAgent #FFECB3
+}
+
+' ======================================================
+' LAYER 4: DIAGNOSIS AGENT LAYER  (D2)
+' Hosted: Databricks Workflows (triggered by D1 anomaly write)
+' ======================================================
+
+rectangle "Layer 4 -- D2 Diagnosis Agents\n(Databricks Workflows -- triggered on DIGITAL_DATA_ANOMALIES write)" as L4 #F8BBD0 {
+
+  rectangle "<b>Drift Classifier Agent</b>\n- Maps anomaly to Data Failure\n  Fingerprint taxonomy\n- Structural vs Statistical\n- Sets failure_category" as DriftAgent #FFF9C4
+
+  rectangle "<b>Lineage Tracer Agent</b>\n- Crawls UC LINEAGE_EVENTS API\n- Identifies Patient Zero\n- Deduplicates downstream noise\n- Blast radius calculation" as LineageAgent #FFF9C4
+
+  rectangle "<b>Segment Slicer Agent</b>\n- In-situ slicing SQL on data\n- Chi-square / Mann-Whitney\n- Facets: market/brand/channel\n  platform/OS/tier/payment" as SlicerAgent #FFF9C4
+
+  rectangle "<b>Evidence Retriever Agent</b>\n- Job run logs (Jobs API 2.1)\n- Table DESCRIBE HISTORY\n- Runbooks (Confluence + UC Vol)\n- GitHub pipeline code search\n- ITSM prior-incident search\n-> builds evidence_bundle" as EvidenceAgent #FFF9C4
+
+  rectangle "<b>Playbook Compiler Agent</b>\n- Match to SOP profiles\n  in /playbooks/{category}.json\n- Grounded by evidence_bundle\n- Generate JSON execution recipe\n- Reproducible fix blueprint" as PlaybookAgent #FFF9C4
+
+  rectangle "<b>Prescription Router Agent</b>\n- Validate token parameters\n- Evaluate domain targets\n- Route: D3 auto / Approval Gate\n  / notify-only / emergency disable" as RouterAgent #FFF9C4
+}
+
+' ======================================================
+' LAYER 5: DEFLECTION AGENT LAYER  (D3)
+' Hosted: Databricks Workflows + Databricks Apps
+' ======================================================
+
+rectangle "Layer 5 -- D3 Deflection Agents\n(Databricks Workflows + Apps)" as L5 #EDE7F6 {
+
+  rectangle "<b>State Validator Agent</b>\n- Confirm corruption still present\n- Prevent redundant fixes\n- Route resolved cases out" as StateAgent #FFF9C4
+
+  rectangle "<b>Circuit Breaker Agent</b>\n- blast_radius > 10 --> Approval Gate\n- PII table --> hard stop\n- FP rate > 50% --> emergency disable\n- Missing metadata --> bounce to D2" as BreakerAgent #FFF9C4
+
+  rectangle "<b>Approval Gate Agent</b>\n- Format diagnostic summary\n- Route to PO/TL (Jira + Email)\n- Click-to-approve clearance\n- 48 h SLA enforcement" as ApprovalAgent #FFF9C4
+
+  rectangle "<b>Domain Executor Agents (x12)</b>\n- adiClub / CRM / Consumer Service\n- NPS / Clickstream / Affiliate\n- Paid Search / SEO / DTC Sales\n- Payments / Metadata / Trading\nEach: auto-fix + pipeline patch\n+ E2E test + prod release plan" as DomainAgents #E1BEE7
+}
+
+' ======================================================
+' SHARED INFRASTRUCTURE
+' ======================================================
+
+together {
+  package "Shared AI Infrastructure\n(Databricks Model Serving + Vector Search + MCP)" as AI #FFF8E1 {
+    rectangle "LLM API\n(Mosaic AI Model Serving)\nIntent / SQL / Trend / Diagnosis" as LLMAPI #FFFDE7
+    rectangle "Vector Search Endpoint\n(BGE-M3 embeddings)\ncosine similarity -- top-k\nUC Volume chunk index" as VSAPI #FFFDE7
+    rectangle "MCP Tool Server\n(Anthropic MCP protocol)\nUC Functions | GitHub API\nConfluence API | ITSM API" as MCPSERVER #D7F5E3
+  }
+
+  package "Shared Agent Memory\n(Unity Catalog -- Delta Tables)" as MEM #E3F2FD {
+    database "anomaly_check_config\n(Rule Registry)" as RuleDB
+    database "check_suggestions_cache\n(table_fqn + schema_version\nsuggestions_json + refreshed_at)" as SuggestCache
+    database "DIGITAL_DATA_ANOMALIES\n(Anomaly Events + diagnosis_status)" as AnomDB
+    database "table_daily_metrics\n(Baselines + EWMA)" as MetricsDB
+    database "check_execution_log\n(Run History)" as ExecLog
+    database "rule_audit_log\n(Immutable Audit)" as AuditDB
+    database "diagnosis_evidence_log\n(D2 evidence bundle per anomaly)" as EvidenceDB
+  }
+
+  package "UC Volume Stores\n(Documentation + Playbooks)" as DOCS #F3E5F5 {
+    database "RAG Document Store\ndata_contracts/ supported_checks/\nsql_patterns/ examples/ glossary/" as DocStore
+    database "Playbook Store\n/playbooks/{failure_category}.json" as PlayStore
+    database "UC Table Metadata\nINFORMATION_SCHEMA.COLUMNS\nDESCRIBE HISTORY max(version)" as UCMeta
+  }
+
+  package "External Evidence Sources\n(D2 Diagnosis -- read-only)" as EVSRC #FBE9E7 {
+    rectangle "Job Run Logs\n(Databricks Jobs API 2.1\nruns/get-output)" as JobLogsSrc #FFCCBC
+    rectangle "Delta DESCRIBE HISTORY\n(transaction log ops\nWRITE/MERGE/DELETE/schema)" as DeltaHistSrc #FFCCBC
+    rectangle "Runbooks\n(Confluence REST +\nUC Volume /runbooks/)" as RunbookSrc #FFCCBC
+    rectangle "GitHub Repo\n(pipeline code search +\nrecent commits)" as GitRepoSrc #FFCCBC
+    rectangle "ITSM Tickets\n(prior resolved incidents,\nsame failure_category)" as ITSMSrc #FFCCBC
+  }
+}
+
+' ======================================================
+' HIDDEN LAYOUT ANCHORS
+' ======================================================
+
+USERS   -[hidden]down-> L1
+L1      -[hidden]down-> L2
+L2      -[hidden]down-> L3
+L3      -[hidden]down-> L4
+L4      -[hidden]down-> L5
+L5      -[hidden]down-> AI
+
+' ======================================================
+' INTER-AGENT COMMUNICATION FLOWS
+' ======================================================
+
+' User -> L1
+USR          -down->  GenieAgent    : NL request / Q&A
+EXT          -down->  GenieAgent    : REST Genie API\n/api/2.0/genie/spaces/*
+
+' L1 internal
+GenieAgent   -right-> IntentRouter  : classify intent
+IntentRouter -right-> BrowserAgent  : READ intent
+IntentRouter -down->  MCPSERVER     : WRITE intent (UC Function Tool / MCP)
+MCPSERVER    -down->  RAGAgent      : dq_suggest_checks / dq_author_rule
+MCPSERVER    -down->  SuggestAgent  : dq_suggest_checks
+IntentRouter -down->  SuggestAgent  : table suggestion intent\n(out-of-context table)
+
+' L1 -> shared memory (read)
+BrowserAgent ..> RuleDB             : SELECT rules / metrics
+BrowserAgent ..> AnomDB             : SELECT anomalies / KPIs
+BrowserAgent ..> SuggestCache       : SELECT cached suggestions
+
+' L2 pipeline
+RAGAgent     -right-> VSAPI         : embed_and_search (top-k=8)
+VSAPI        ..>      DocStore      : fetch chunks
+RAGAgent     -right-> SQLGenAgent   : ranked context + LLM prompt
+SQLGenAgent  -right-> LLMAPI        : generate SQL
+SQLGenAgent  -right-> SecAgent      : security check
+SecAgent     -right-> ValAgent      : validated SQL
+ValAgent     -right-> DupAgent      : dedup check
+DupAgent     -right-> TrendAgent    : scored proposal
+TrendAgent   -right-> LLMAPI        : trend score inference
+TrendAgent   -right-> SubmitAgent   : final proposal
+SubmitAgent  -down->  RuleDB        : INSERT / UPDATE rule
+SubmitAgent  -down->  AuditDB       : write audit record
+
+SuggestAgent ..> SuggestCache       : SELECT by table_fqn + schema_version
+SuggestAgent ..> UCMeta             : resolve max(version) + columns
+SuggestAgent -right-> RAGAgent      : cache miss -> enrich context
+SuggestAgent -right-> LLMAPI        : generate applicable check list
+SuggestAgent -down->  SuggestCache  : UPSERT refreshed suggestions
+CacheMaintAgent -down-> SuggestCache : weekly archive stale/dropped
+
+' L2 reads memory
+DupAgent     ..>      RuleDB        : SELECT similar rules
+TrendAgent   ..>      MetricsDB     : SELECT 30-day history
+
+' L3 flows
+RuleDB       -down->  DispatchAgent : read active configs
+MetricsDB    -down->  BaselineAgent : load rolling baselines
+ProfilerAgent -right-> BaselineAgent : profile data -> learn thresholds
+BaselineAgent -right-> DispatchAgent : baselines loaded
+DispatchAgent -right-> AlertAgent   : check result + violation metric
+AlertAgent    -down->  AnomDB       : INSERT anomaly event
+AlertAgent    -down->  ExecLog      : LOG PASS/FAIL/ERROR/TIMEOUT
+AlertAgent    -down->  MetricsDB    : UPSERT baselines (post-run)
+
+' L3 -> L4 trigger
+AnomDB       -down->  DriftAgent    : diagnosis_status=PENDING trigger
+
+' L4 pipeline
+DriftAgent   -right-> LineageAgent  : classified anomaly
+LineageAgent -right-> SlicerAgent   : Patient Zero identified
+SlicerAgent  -right-> EvidenceAgent : segment coordinates
+EvidenceAgent ..>     JobLogsSrc    : fetch job error trace
+EvidenceAgent ..>     DeltaHistSrc  : DESCRIBE HISTORY
+EvidenceAgent -right-> MCPSERVER    : external evidence (MCP)
+MCPSERVER     ..>     RunbookSrc    : Confluence API
+MCPSERVER     ..>     GitRepoSrc    : GitHub code search
+MCPSERVER     ..>     ITSMSrc       : ITSM prior incidents
+EvidenceAgent -down-> EvidenceDB    : INSERT evidence_bundle
+EvidenceAgent -right-> PlaybookAgent : evidence-enriched handover
+PlaybookAgent ..>     PlayStore     : load SOP profile JSON
+PlaybookAgent -right-> RouterAgent  : execution recipe
+RouterAgent  -down->  StateAgent    : prescription token
+
+' L5 pipeline
+StateAgent   -right-> BreakerAgent  : corruption confirmed
+BreakerAgent -right-> ApprovalAgent : high-risk gate
+ApprovalAgent -right-> DomainAgents : approved prescription
+DomainAgents -down->  MetricsDB    : update EWMA baseline (D3 feedback)
+DomainAgents -down->  AnomDB       : SET diagnosis_status=RESOLVED
+
+' D3 -> D2 feedback (bounce)
+BreakerAgent ..> DriftAgent         : missing metadata -- re-diagnose
+
+@enduml

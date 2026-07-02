@@ -1,0 +1,116 @@
+@startuml 06_C4_Component
+title 3D Data Quality Framework - Component Diagram\nGenie Space (Read) + DQ Backend App (Write)
+
+skinparam backgroundColor #FAFAFA
+skinparam defaultFontName Segoe UI
+skinparam rectangle {
+  RoundCorner 10
+  BorderColor #90A4AE
+  FontColor #263238
+}
+skinparam actor {
+  BorderColor #455A64
+  FontColor #263238
+}
+skinparam package {
+  BorderColor #B0BEC5
+  BackgroundColor #FFFFFF
+}
+
+left to right direction
+
+actor User as "User\n(Data Engineer / BA / PO / TL)"
+
+rectangle LLMEngine as "LLM Engine\n(Mosaic AI)\nNLP, SQL generation, trend scoring"
+database RuleStore as "Rule Store\n(Delta Lake)\nanomal_check_config"
+database SuggestCache as "Suggestion Cache\n(check_suggestions_cache)\ntable_fqn + schema_version\nsuggestions_json"
+database DocStore as "Documentation Store\n(UC Volumes)\ndata_contracts/ . supported_checks/\nsql_patterns/ . examples/ . domain_glossary/"
+database UCMeta as "UC Table Metadata\n(INFORMATION_SCHEMA +\nDESCRIBE HISTORY max(version))"
+rectangle VectorIdx as "Vector Search Index\n(Databricks VS / BGE-M3)\nembeds + cosine similarity search\ntop-k chunk retrieval"
+rectangle ApprovalSvc as "Approval Gateway\n(Python service)\nowner/non-owner routing"
+rectangle ValidatorSvc as "Rule Validator Service\n(Python)\nsecurity + SQL validation"
+
+note as NoteGenie
+  Genie Space:
+  READ-only access only to configured Genie data sources.
+  Executes SELECT via Unity Catalog.
+
+  For table-suggestion queries on tables
+  outside Genie context, route to backend
+  via UC Function Tool.
+
+  For WRITE intent: LLM selects a registered
+  UC Function Tool (dq_backend.create_rule).
+  Genie runtime invokes the UC function
+  which HTTP-calls the DQ Backend App
+  (Databricks App / service principal).
+  User sees only the NL response.
+end note
+
+package "Genie Space  (Mosaic AI Agent Chat)" #E3F2FD {
+  rectangle ChatIface as "Chat Interface\nUI rendering, NL answers,\nSQL diff, status display"
+  rectangle SessionMgr as "Session Manager\ncontext per user / session"
+  rectangle IntentRouter as "Intent Router\n[LLM classifies READ / WRITE / AMBIGUOUS]\nREAD  -> Rule Browser (SELECT on Delta)\nWRITE -> invoke UC Function Tool\n        -> DQ Backend App (HTTP POST)"
+  rectangle RuleBrowser as "Rule Browser\nsearch rules, history,\nexecution metrics (SELECT)"
+}
+
+note as NoteBackend
+  DQ Backend App:
+  Runs as Databricks App under
+  service principal with WRITE access.
+  User identity passed in payload
+  for full audit trail.
+end note
+
+package "DQ Backend App  (Databricks App / REST)" #E8F5E9 {
+  rectangle SqlGenerator as "SQL Generator\npattern-based SQL creation with LLM\n(grounded by RAG context)"
+  rectangle CheckSuggestionResolver as "Check Suggestion Resolver\nenforce table_fqn format\ncache lookup by schema_version\nfallback generation on miss"
+  rectangle TableMetadataReader as "Table Metadata Reader\nDESCRIBE HISTORY max(version)\nINFORMATION_SCHEMA.COLUMNS"
+  rectangle SecurityGuard as "Security Guard\nSELECT-only enforcement\nblock injection / DDL / DML"
+  rectangle SqlValidator as "SQL Validator\nsyntax + schema + cost"
+  rectangle DupDetector as "Duplicate Detector\nsemantic / structural similarity check"
+  rectangle MetadataPrompter as "Metadata Prompter\nowner, frequency, priority, thresholds"
+  rectangle TrendScorer as "Trend Scorer\npass/fail prediction from last 30 days"
+  rectangle RuleSubmitter as "Rule Submitter\nINSERT to Delta\ntrigger approval"
+  rectangle RAGRetriever as "RAG Context Retriever\nquery formulation (entities -> query string)\nembed + top-k search via Vector Index\nassemble LLM context window\n(contract + template + few-shot examples)"
+}
+
+User --> ChatIface : types request / reads responses
+ChatIface --> SessionMgr : read/write context
+ChatIface --> IntentRouter : send NL input
+
+IntentRouter --> LLMEngine : classify intent (READ / WRITE)
+IntentRouter --> RuleBrowser : [READ intent] browse / query
+IntentRouter --> SqlGenerator : [WRITE intent] invoke UC tool -> DQ Backend App
+IntentRouter --> CheckSuggestionResolver : [TABLE_SUGGESTION intent]\ninvoke UC tool -> DQ Backend App
+
+RuleBrowser --> RuleStore : SELECT (read-only)
+RuleBrowser --> SuggestCache : SELECT cached table suggestions
+
+CheckSuggestionResolver --> TableMetadataReader : read schema version + columns
+TableMetadataReader --> UCMeta : DESCRIBE HISTORY + INFORMATION_SCHEMA
+CheckSuggestionResolver --> SuggestCache : SELECT by table_fqn + schema_version
+CheckSuggestionResolver --> RAGRetriever : cache miss -> enrich context
+CheckSuggestionResolver --> LLMEngine : generate suggested DQ checks
+CheckSuggestionResolver --> SuggestCache : UPSERT refreshed suggestions
+
+SqlGenerator --> RAGRetriever : retrieve context\n(check_type, table, column, domain)
+RAGRetriever --> VectorIdx : embed_and_search(query, top_k=8,\nfilter={table_name, doc_type})
+VectorIdx --> DocStore : fetch chunks from UC Volume index
+RAGRetriever --> SqlGenerator : ranked context chunks\n(contract + template + examples)
+SqlGenerator --> LLMEngine : generate SQL with RAG context window
+SqlGenerator --> SecurityGuard : validate generated SQL
+SecurityGuard --> ValidatorSvc : pass security-cleared SQL
+ValidatorSvc --> SqlValidator : syntax + schema + cost check
+SqlValidator --> DupDetector : pass validated SQL
+DupDetector --> RuleStore : SELECT similar rules
+DupDetector --> MetadataPrompter : collect required metadata
+MetadataPrompter --> TrendScorer : pass completed proposal
+TrendScorer --> LLMEngine : infer trend score
+TrendScorer --> RuleSubmitter : pass scored proposal
+RuleSubmitter --> RuleStore : INSERT / UPDATE (service principal)
+RuleSubmitter --> ApprovalSvc : trigger approval flow
+
+ChatIface --> User : show NL answer, SQL, trend score, status
+
+@enduml

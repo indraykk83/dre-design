@@ -1,0 +1,329 @@
+@startuml 34_async_d1_d2_d3_flows
+!theme plain
+title DRE 3D Framework -- Async Flows (D1 Detection → D2 Diagnosis → D3 Deflection)
+
+skinparam sequence {
+  ArrowColor #546E7A
+  LifeLineBorderColor #B0BEC5
+  ParticipantBorderColor #90A4AE
+  ParticipantBackgroundColor #ECEFF1
+  BoxBorderColor #CFD8DC
+}
+
+box "Triggers" #FFF3E0
+  participant "Cron Schedule\nUpstream Job" as Trigger
+  participant "Pipeline\nFailure Event" as PipelineEvent
+end box
+
+box "D1 Detection (Workflow)" #FFCDD2
+  participant "Pipeline Failure\nMonitor" as PFM
+  participant "Anomaly Detection\nJob" as D1Job
+  participant "Profiler &\nBaseline Learner" as Profiler
+end box
+
+box "Unity Catalog Delta" #E3F2FD
+  database "anomaly_check_config\n+ pipeline_registry" as ConfigDB
+  database "incident_context\n(Unified Signal)" as IncidentDB
+  database "DIGITAL_DATA_ANOMALIES" as AnomDB
+  database "table_daily_metrics\n(Baselines)" as MetricsDB
+  database "diagnosis_evidence_log" as EvidenceDB
+  database "deployment_registry" as DeployDB
+  database "incident_kb\n(Learning)" as IncidentKB
+end box
+
+box "D2 Diagnosis (Workflow)" #F8BBD0
+  participant "Signal\nClassifier" as SignalClass
+  participant "Evidence\nRetriever" as EvidenceAgent
+  participant "Deployment\nCorrelator" as DeployCorr
+  participant "Playbook\nCompiler" as PlaybookAgent
+end box
+
+box "D3 Deflection (Workflow)" #CE93D8
+  participant "State\nValidator" as StateValidator
+  participant "Circuit\nBreaker" as CircuitBreaker
+  participant "Approval\nGate" as ApprovalGate
+  participant "Domain\nExecutor" as DomainExec
+  participant "Feedback\nLearner" as FeedbackAgent
+end box
+
+box "External Systems" #FFF9C4
+  participant "Databricks\nJob Logs" as JobLogs
+  participant "Delta History\n+ UC Metadata" as DeltaMeta
+  participant "Jira + GitHub\nConfluence + ITSM" as External
+end box
+
+box "AI & RAG" #FFF8E1
+  participant "Mosaic AI\nLLM" as LLM
+  participant "AI Search\nVector Index" as VS
+end box
+
+==ASYNC FLOW 1: Scheduled D1 Detection==
+
+Trigger -> D1Job : Cron trigger (daily 02:00 UTC)
+activate D1Job
+
+D1Job -> ConfigDB : SELECT rules\nWHERE is_active = true\nAND frequency = 'daily'
+
+ConfigDB --> D1Job : Active rules (247)
+
+D1Job -> MetricsDB : Load baselines\n(EWMA, stddev, PSI)
+
+MetricsDB --> D1Job : Baseline data
+
+D1Job -> D1Job : Execute DQ checks:\n- Z-score (volume anomaly)\n- Null rate\n- Freshness SLA\n- Distribution drift
+
+alt Anomaly Detected
+  D1Job -> AnomDB : INSERT anomaly\n(table: gold.customer,\nseverity: HIGH, z_score: 3.2)
+  
+  D1Job -> IncidentDB : INSERT incident_context\n(signal_source: DATA_ANOMALY,\nfailure_class: STATISTICAL)
+  
+  D1Job -> External : Send P1 alert\n(Jira + Email)
+  
+  D1Job -> D1Job : Trigger D2 workflow
+else No Anomaly
+  D1Job -> ConfigDB : Log execution (PASS)
+end
+
+deactivate D1Job
+
+note right
+  <b>D1 Flow Complete</b>
+  Scheduled execution
+  Writes to Delta
+  Triggers D2 on anomaly
+end note
+
+==ASYNC FLOW 2: Pipeline Failure Detection==
+
+PipelineEvent -> PFM : Pipeline failure event\n(job_id: 12345, run_id: 67890)
+activate PFM
+
+PFM -> JobLogs : Query run logs\n(stderr, exit code)
+
+JobLogs --> PFM : Task failed: TIMEOUT\nError: "Connection refused"
+
+PFM -> ConfigDB : Query pipeline_registry\n(owner, criticality, deps)
+
+ConfigDB --> PFM : {owner: "team-data",\ncriticality: "HIGH",\nupstream_deps: [pipeline_A, pipeline_B]}
+
+PFM -> IncidentDB : INSERT incident_context\n(signal_source: PIPELINE_FAILURE,\nerror_type: TASK_TIMEOUT,\nfailure_class: INFRA)
+
+PFM -> AnomDB : INSERT anomaly\n(severity: CRITICAL)
+
+PFM -> External : Send P1 alert
+
+PFM -> PFM : Trigger D2 workflow
+
+deactivate PFM
+
+note right
+  <b>Pipeline Failure Flow Complete</b>
+  Event-driven detection
+  Unified incident_context
+  Triggers D2 immediately
+end note
+
+==ASYNC FLOW 3: D2 Diagnosis==
+
+IncidentDB -> SignalClass : New incident\n(diagnosis_status: PENDING)
+activate SignalClass
+
+SignalClass -> IncidentDB : Read incident_context
+
+IncidentDB --> SignalClass : {signal_source: PIPELINE_FAILURE,\nerror_type: TASK_TIMEOUT}
+
+SignalClass -> SignalClass : Classify:\nPipeline vs Data?\nInfra vs Code vs Data?
+
+SignalClass --> SignalClass : Classification:\nPIPELINE_FAILURE / INFRA
+
+SignalClass -> EvidenceAgent : Gather evidence\n(incident_context)
+deactivate SignalClass
+
+activate EvidenceAgent
+
+EvidenceAgent -> JobLogs : Retrieve job logs\n(Jobs API 2.1)
+JobLogs --> EvidenceAgent : Task stderr/stdout
+
+EvidenceAgent -> DeltaMeta : DESCRIBE HISTORY\n(affected table)
+DeltaMeta --> EvidenceAgent : Recent operations (MERGE, DELETE)
+
+EvidenceAgent -> External : Confluence: Search runbooks\n(keyword: "timeout")
+External --> EvidenceAgent : Runbook: "Timeout Troubleshooting"
+
+EvidenceAgent -> External : GitHub: Code search\n(pipeline code)
+External --> EvidenceAgent : Recent commit: 2h ago
+
+EvidenceAgent -> External : ITSM: Prior incidents\n(same error_type)
+External --> EvidenceAgent : 2 similar incidents (resolved)
+
+EvidenceAgent -> VS : RAG: Search incident_kb\n(embed: "task timeout infra")
+VS --> EvidenceAgent : Similar incidents (3)
+
+EvidenceAgent -> DeployCorr : Correlate deployment
+deactivate EvidenceAgent
+
+activate DeployCorr
+
+DeployCorr -> DeployDB : Query recent deployments\n(last 4 hours)
+
+DeployDB --> DeployCorr : Deployment: 13:45 UTC\n(bundle: v2.3.1 → v2.3.2)
+
+DeployCorr -> External : GitHub: Compare commits
+External --> DeployCorr : Config change: timeout 60s → 30s
+
+DeployCorr -> PlaybookAgent : Evidence + correlation
+deactivate DeployCorr
+
+activate PlaybookAgent
+
+PlaybookAgent -> LLM : Compile evidence into playbook\n(job_log + delta_history + runbook\n+ code + deployment)
+
+LLM --> PlaybookAgent : Root cause:\n"Timeout reduced in v2.3.2\nTask needs 45s but timeout is 30s"\n\nPrescription:\n"Rollback to v2.3.1 OR\nIncrease timeout to 60s"
+
+PlaybookAgent -> EvidenceDB : INSERT evidence_bundle\n(complete diagnostic context)
+
+PlaybookAgent -> IncidentDB : UPDATE incident_context\n(diagnosis_status: READY_FOR_DEFLECTION)
+
+PlaybookAgent -> PlaybookAgent : Trigger D3 workflow
+
+deactivate PlaybookAgent
+
+note right
+  <b>D2 Flow Complete</b>
+  Multi-source evidence
+  Deployment correlation
+  LLM compiles playbook
+  Triggers D3
+end note
+
+==ASYNC FLOW 4: D3 Deflection==
+
+IncidentDB -> StateValidator : diagnosis_status:\nREADY_FOR_DEFLECTION
+activate StateValidator
+
+StateValidator -> JobLogs : Re-check: Is failure still present?
+
+JobLogs --> StateValidator : Yes, job still failing
+
+StateValidator -> CircuitBreaker : Validate remediation eligibility
+deactivate StateValidator
+
+activate CircuitBreaker
+
+CircuitBreaker -> EvidenceDB : Load evidence_bundle
+
+EvidenceDB --> CircuitBreaker : Full diagnostic context
+
+CircuitBreaker -> ConfigDB : Query remediation_policy\n(pipeline_id)
+
+ConfigDB --> CircuitBreaker : {auto_fix_allowed: true,\nmax_retries: 3,\nblast_radius_threshold: 10,\napproval_required: true\n(config change)}
+
+CircuitBreaker -> CircuitBreaker : Check:\n- blast_radius: 1 pipeline (OK)\n- PII table: No (OK)\n- Config change: Yes (APPROVAL REQUIRED)
+
+CircuitBreaker -> ApprovalGate : Route to approval
+deactivate CircuitBreaker
+
+activate ApprovalGate
+
+ApprovalGate -> LLM : Format diagnostic summary\n(human-readable)
+
+LLM --> ApprovalGate : "Pipeline 'customer_load' failing\ndue to timeout config change.\n\nRoot Cause: v2.3.2 reduced timeout\nfrom 60s to 30s. Task needs 45s.\n\nProposed Fix: Rollback to v2.3.1\nOR increase timeout to 60s.\n\nRisk: Low (config-only change)\nBlast Radius: 1 pipeline"
+
+ApprovalGate -> External : Jira: Create approval ticket\n+ Email to PO/TL
+
+External --> ApprovalGate : Approval granted\n(click-to-approve)
+
+ApprovalGate -> DomainExec : Execute approved fix
+deactivate ApprovalGate
+
+activate DomainExec
+
+DomainExec -> External : GitHub: Create PR\n(revert timeout config)
+
+DomainExec -> External : Databricks: Deploy fix\n(bundle: v2.3.2 → v2.3.3)
+
+DomainExec -> JobLogs : Restart pipeline\n(with fix)
+
+DomainExec -> DomainExec : Wait for verification run
+
+JobLogs --> DomainExec : Run successful (exit: 0)
+
+DomainExec -> FeedbackAgent : Fix outcome: SUCCESS
+deactivate DomainExec
+
+activate FeedbackAgent
+
+FeedbackAgent -> AnomDB : UPDATE status = RESOLVED
+
+FeedbackAgent -> IncidentKB : INSERT resolved incident\n(root_cause + resolution + outcome)
+
+FeedbackAgent -> MetricsDB : Update baseline\n(feedback loop)
+
+FeedbackAgent -> ConfigDB : Update remediation_policy\n(calibration: timeout fixes\nauto-approve in future)
+
+FeedbackAgent -> External : Notification:\n"Incident resolved"
+
+deactivate FeedbackAgent
+
+note right
+  <b>D3 Flow Complete</b>
+  Policy-gated approval
+  Automated fix execution
+  E2E verification
+  Feedback to learning
+end note
+
+legend right
+  <b>Async Flows Summary</b>
+  
+  <b>Flow 1: Scheduled D1 Detection</b>
+    Cron → D1 Job
+    → Read rules from Delta
+    → Execute checks
+    → Write anomalies
+    → Trigger D2 (if anomaly)
+  
+  <b>Flow 2: Pipeline Failure Detection</b>
+    Event → Pipeline Failure Monitor
+    → Query logs + metadata
+    → Write incident_context
+    → Trigger D2 immediately
+  
+  <b>Flow 3: D2 Diagnosis</b>
+    incident_context (PENDING)
+    → Signal Classifier
+    → Evidence Retriever (multi-source)
+    → Deployment Correlator
+    → Playbook Compiler (LLM)
+    → Write evidence_log
+    → Trigger D3
+  
+  <b>Flow 4: D3 Deflection</b>
+    evidence_bundle (READY_FOR_DEFLECTION)
+    → State Validator
+    → Circuit Breaker (policy check)
+    → Approval Gate (human-in-loop)
+    → Domain Executor (fix + verify)
+    → Feedback Learner (update KB + policy)
+  
+  <b>Key Characteristics:</b>
+  - <b>Asynchronous:</b> Event-driven workflows
+  - <b>Stateless:</b> State stored in Delta
+  - <b>Durable:</b> Restart-safe
+  - <b>A2A via Delta:</b> Workflows read/write tables
+  - <b>Triggered:</b> Status changes trigger next workflow
+  - <b>Feedback Loop:</b> D3 updates D1 baselines
+  
+  <b>Technologies:</b>
+  - Databricks Workflows (Execution)
+  - Unity Catalog (State storage)
+  - Mosaic AI (Reasoning)
+  - AI Search (RAG)
+  - External APIs (Evidence + Actions)
+  
+  <b>A2A Communication:</b>
+  D1 → Delta → D2 → Delta → D3 → Delta → D1
+  (via incident_context, evidence_log, feedback)
+endlegend
+
+@enduml

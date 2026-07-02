@@ -1,0 +1,243 @@
+@startuml 16_D3_Deflection_Flow
+!theme plain
+
+skinparam backgroundColor #F5F7FA
+skinparam defaultFontName Arial
+skinparam defaultFontSize 11
+skinparam Padding 5
+skinparam ArrowThickness 1.5
+
+skinparam title {
+  FontSize 17
+  FontStyle bold
+  FontColor #1A237E
+  BackgroundColor #E8EAF6
+  BorderColor #3F51B5
+  BorderThickness 2
+}
+
+skinparam sequence {
+  ArrowColor #455A64
+  LifeLineBorderColor #B0BEC5
+  ParticipantBorderColor #90A4AE
+  ParticipantBackgroundColor #ECEFF1
+  BoxBorderColor #CFD8DC
+}
+
+skinparam note {
+  BackgroundColor #FFF8E1
+  BorderColor #FFB300
+  FontColor #4E342E
+  FontSize 10
+  BorderThickness 1.5
+}
+
+title <b>3D Data Quality Framework  \u00b7  D3 Deflection Engine</b>\n<size:12>State Validator \u2192 Circuit Breaker \u2192 Approval Gate \u2192 Domain Executors \u2192 Feedback Loop</size>
+
+participant "D2 Prescription\nHandover"           as D2
+participant "State\nValidator"                    as SV
+participant "Circuit\nBreaker"                    as CB
+participant "Approval\nGate"                      as AG
+participant "Domain\nExecutor"                    as DE
+database    "DIGITAL_DATA_ANOMALIES\n(Delta)"      as AnomalyDB
+database    "anomaly_check_config\n(Delta)"        as RuleDB
+database    "rule_audit_log\n(Delta)"              as AuditDB
+database    "table_daily_metrics\n(Delta)"         as MetricsDB
+database    "data_contract_registry\n(UC Volume)"  as ContractDB
+database    "diagnosis_evidence_log\n(Delta)"      as EvidenceDB
+participant "Notification\nDispatcher"             as Notify
+participant "D1 Baseline\nLearner"                 as D1BL
+actor       "Rule Owner /\nTech Lead"              as Owner
+
+== [D3-0] Prescription Received from D2 ==
+
+D2 -> SV : Prescription handover\n{anomaly_id, prescription_json,\n severity_band, auto_fix_eligible,\n domain_executor_target,\n evidence_bundle_id}
+activate SV
+
+== [D3-1] State Validator -- Pre-flight Checks Before Acting ==
+
+note right of SV
+  Validates that the system is safe to act:
+  \u2022 Is the target table still online?
+  \u2022 Is the anomaly still active (not self-healed)?
+  \u2022 Has another executor already fixed this anomaly?
+  \u2022 Are dependent jobs currently running?
+  \u2022 Is there an active data contract for this table?
+  Also loads evidence_bundle (job log, DESCRIBE HISTORY,
+  runbooks, code, prior ITSM) to give downstream agents
+  full diagnostic context before acting.
+  Prevents duplicate remediation and race conditions.
+end note
+
+SV -> AnomalyDB  : SELECT current_status FROM DIGITAL_DATA_ANOMALIES\nWHERE anomaly_id = ?
+AnomalyDB --> SV : {status: 'DIAGNOSED' | 'SELF_HEALED' | 'LOCKED'}
+
+SV -> EvidenceDB : SELECT * FROM diagnosis_evidence_log\nWHERE anomaly_id = ?
+EvidenceDB --> SV : evidence_bundle {job_log_ref, delta_history,\n                    runbook_refs, code_refs,\n                    similar_incidents, evidence_score}
+
+SV -> ContractDB : CHECK: data contract exists for {schema}.{table}\nGET contract terms (SLA, owner, remediation_policy)
+ContractDB --> SV : {contract_id, owner_email, remediation_policy,\n          sla_hours, pii_sensitivity}
+
+SV -> RuleDB     : SELECT is_active, last_run_status\nFROM anomaly_check_config\nWHERE rule_id = ?
+RuleDB --> SV    : Rule still active + last status
+
+alt Anomaly already self-healed
+
+  SV -> AnomalyDB : UPDATE: deflection_status = 'SELF_HEALED'\nSET deflection_notes = 'No action needed'
+  SV -> Notify : Inform owner -- anomaly self-healed\n(no action taken; monitoring continues)
+  SV --> D2 : Deflection complete (self-healed)
+
+else System safe to proceed
+
+  SV --> CB : Pre-flight passed\n{prescription, contract_id, pii_sensitivity}
+  deactivate SV
+  activate CB
+
+  == [D3-2] Circuit Breaker -- Critical Impact Decision ==
+
+  note right of CB
+    Circuit Breaker decides whether to:
+    A) Execute immediately (auto-fix eligible, LOW blast radius)
+    B) Require Approval Gate (HIGH blast radius or PII table)
+    C) Emergency disable rule   (runaway rule, high false-positive rate)
+    D) Hard stop (CRITICAL anomaly + contract breach -- pause all jobs)
+
+    Thresholds:
+    \u2022 blast_radius.downstream_tables > 10  \u2192 Approval Gate
+    \u2022 pii_sensitivity = HIGH              \u2192 Approval Gate
+    \u2022 auto_fix_eligible = false           \u2192 Approval Gate
+    \u2022 rule false_positive_rate > 50%      \u2192 Emergency disable rule
+    \u2022 CRITICAL + contract SLA breached    \u2192 Hard stop + escalate
+  end note
+
+  CB -> AnomalyDB  : GET blast_radius_json, micro_segment\nFROM DIGITAL_DATA_ANOMALIES\nWHERE anomaly_id = ?
+  AnomalyDB --> CB : blast radius + segment context
+
+  CB -> MetricsDB  : SELECT false_positive_rate_30d\nFROM table_daily_metrics\nWHERE rule_id = ?
+  MetricsDB --> CB : false_positive_rate
+
+  CB --> CB : Evaluate all circuit conditions
+
+  alt Auto-fix: blast radius low + PII safe + FP rate ok
+
+    CB --> DE : Dispatch to Domain Executor\n(auto-fix path)
+    deactivate CB
+    activate DE
+
+  else Approval required: high blast radius / PII / manual
+
+    CB --> AG : Route to Approval Gate\n(owner must approve before execution)
+    deactivate CB
+    activate AG
+
+    == [D3-2b] Approval Gate -- Owner Sign-off for High-Risk Fixes ==
+
+    AG -> Notify : Send approval request to Owner + Tech Lead\n{prescription steps, blast radius,\n PII impact, rollback procedure,\n evidence_bundle summary}
+    Notify -> Owner : Email + Jira ticket:\n"D3 Remediation approval required\n  Table: {table}\n  Action: {prescription_step_summary}\n  Blast radius: {N} downstream tables\n  Evidence: job log + Delta history + runbook\n  Prior fix: {similar_incident_ref}\n  Rollback: {procedure}\n  SLA target: {sla_target}\n[APPROVE] [REJECT] [REQUEST CHANGES]"
+
+    Owner --> AG : Decision: APPROVE / REJECT / MODIFY
+
+    alt Owner Approves
+
+      AG -> AuditDB : LOG: D3_APPROVED\n{owner, anomaly_id, prescription_id, timestamp}
+      AG --> DE     : Execute approved prescription
+      activate DE
+
+    else Owner Rejects
+
+      AG -> AnomalyDB : UPDATE: deflection_status = 'OWNER_REJECTED'\n SET resolution_notes = '{rejection_reason}'
+      AG -> AuditDB   : LOG: D3_REJECTED\n{owner, anomaly_id, reason, timestamp}
+      AG -> Notify    : Notify DataOps -- owner rejected auto-fix\n(manual investigation required)
+      AG --> D2       : Deflection rejected -- escalate
+
+    end
+
+    deactivate AG
+
+  else Emergency: rule false-positive rate > 50%
+
+    CB -> RuleDB    : UPDATE anomaly_check_config\nSET is_active = false,\n    status = 'DISABLED_EMERGENCY',\n    disable_reason = 'high_false_positive_rate'
+    CB -> AuditDB   : LOG: EMERGENCY_DISABLED_BY_D3\n{rule_id, false_positive_rate, timestamp}
+    CB -> Notify    : Alert rule owner + DataOps\n(rule auto-disabled -- review thresholds)
+    CB --> D2       : Emergency disable applied -- no further action
+
+  end
+
+  == [D3-3] Domain Executor -- Execute the Remediation ==
+
+  note right of DE
+    Domain Executors are parameterized workflow units,
+    one per business domain:
+    \u2022 adiClub / CRM       -- loyalty data fixes
+    \u2022 DTC Sales            -- order / cart data fixes
+    \u2022 Payments             -- payment event repair
+    \u2022 Trading              -- stock / demand data fixes
+    \u2022 Clickstream          -- event stream re-processing
+    \u2022 Metadata             -- catalog / schema updates
+    \u2022 NPS / Affiliates     -- survey / partner data fixes
+    All executors share the same contract:
+      execute(prescription_json) \u2192 ExecutionResult
+    Domain routing is determined by data_product_config.
+  end note
+
+  DE -> AnomalyDB : UPDATE: deflection_status = 'EXECUTING'\n SET execution_start = NOW()
+
+  DE -> DE : Parse prescription.steps[]\nUsing evidence_bundle for context:\n  - job_log_ref   -> confirms which pipeline failed\n  - delta_history -> confirms last write operation\n  - runbook_refs  -> step-by-step procedure guidance\n  - code_refs     -> source file + commit for context\n  - similar_incidents -> reuse past resolution steps\nExecute each remediation step in order:\n  1. Validate target table state\n  2. Apply fix (UPDATE / REFRESH / REPROCESS)\n  3. Capture before/after metrics\n  4. Verify fix (re-run DQ rule assertion)\n  5. Log evidence bundle
+
+  alt Fix successful -- DQ rule now passes
+
+    DE -> RuleDB    : (If rule was paused during fix)\nUPDATE SET is_active = true
+    DE -> MetricsDB : INSERT: post_fix_metrics\n{pass_rate, row_count, violation_pct_after}
+    DE -> AnomalyDB : UPDATE: deflection_status = 'RESOLVED',\n SET resolved_at = NOW(),\n     resolution_type = 'AUTO_FIXED',\n     evidence_bundle = {before, after, steps_taken}
+    DE -> AuditDB   : LOG: D3_RESOLVED\n{executor, prescription_id, steps_applied,\n duration_mins, dbu_cost, timestamp}
+    DE -> Notify    : Send resolution notification:\n  - Owner: "Anomaly auto-resolved in {duration}\n    Table: {table} | Fix: {summary}"\n  - DataOps: Execution report
+
+  else Fix failed -- prescription did not resolve
+
+    DE -> AnomalyDB : UPDATE: deflection_status = 'FIX_FAILED',\n SET failure_reason = '{error_detail}'
+    DE -> AuditDB   : LOG: D3_FIX_FAILED\n{executor, prescription_id, error, timestamp}
+    DE -> Notify    : Escalate to Owner + Tech Lead + DataOps\n(manual intervention required)
+
+  end
+
+  deactivate DE
+
+  == [D3-4] Feedback Loop -- Learnings Refine D1 Baselines ==
+
+  note over SV, D1BL
+    After each resolved anomaly, D3 feeds learnings back to D1 Baseline Learner.
+    This closes the continuous improvement loop:
+      D3 resolution data  \u2192  D1 Baseline Learner  \u2192  refined detection thresholds
+  end note
+
+  DE -> D1BL : Feedback payload\n{table_name, column_name,\n pre_fix_stats, post_fix_stats,\n fix_type, resolution_duration_hrs,\n false_positive_indicator}
+  activate D1BL
+
+  D1BL -> MetricsDB : UPDATE table_daily_metrics\nSET   baseline_mean         = EWMA(post_fix_stats),\n      baseline_stddev       = updated_stddev,\n      last_fix_date         = NOW(),\n      false_positive_count  = baseline_fp_count + ?,\n      learning_version      += 1\nWHERE table_name = ? AND column_name = ?
+  MetricsDB --> D1BL : Baseline updated
+
+  D1BL -> RuleDB : Adjust dynamic threshold if drift detected:\nUPDATE anomaly_check_config\nSET threshold_pct = recalculated_threshold\nWHERE rule_id = ? AND dynamic_threshold = true
+  D1BL -> AuditDB : LOG: BASELINE_UPDATED_VIA_D3_FEEDBACK\n{table, column, old_baseline, new_baseline,\n trigger: 'D3_resolution', timestamp}
+
+  deactivate D1BL
+
+end
+
+== [D3 Output Summary] ==
+
+note over D2, D1BL
+  D3 Deflection produces fully-closed anomaly records in DIGITAL_DATA_ANOMALIES:
+  \u250c\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2510
+  \u2502 deflection_status  : RESOLVED                                    \u2502
+  \u2502 resolution_type    : AUTO_FIXED (Circuit Breaker \u2192 Executor)     \u2502
+  \u2502 executor           : DTC_SALES_EXECUTOR                           \u2502
+  \u2502 resolved_at        : 2026-06-18T14:32Z                            \u2502
+  \u2502 mttd_hours         : 0.8  (detected \u2192 diagnosed)                  \u2502
+  \u2502 mttr_hours         : 3.1  (diagnosed \u2192 resolved)                  \u2502
+  \u2502 evidence_bundle    : job log + Delta history + runbook ref        \u2502
+  \u2502                      GitHub code ref + prior ITSM fix reused      \u2502
+  \u2502 baseline_updated   : true (D1 Baseline Learner notified)           \u2502
+  \u2514\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2518
+end note
+
+@enduml

@@ -1,0 +1,392 @@
+@startuml 32_end_to_end_component_interaction
+!theme plain
+title DRE 3D Framework -- End-to-End Component Interaction\nAll Use Cases: Rule Authoring | Detection | Diagnosis | Remediation
+
+skinparam sequence {
+  ArrowColor #546E7A
+  LifeLineBorderColor #B0BEC5
+  ParticipantBorderColor #90A4AE
+  ParticipantBackgroundColor #ECEFF1
+  BoxBorderColor #CFD8DC
+}
+
+box "User Layer" #FFF3E0
+  actor "Data Engineer" as User
+end box
+
+box "Frontend (Databricks Apps)" #E3F2FD
+  participant "Chatbot UI" as UI
+end box
+
+box "Orchestration (LangGraph)" #E8F5E9
+  participant "LangGraph\nOrchestrator" as LG
+  participant "Interactive\nAgents" as Agents
+end box
+
+box "AI & RAG" #FFF8E1
+  participant "Mosaic AI\nLLM" as LLM
+  participant "AI Search\nVector Index" as VS
+end box
+
+box "Validation Pipeline" #FFCDD2
+  participant "Security\nGuard" as SecGuard
+  participant "Governance\nLayer" as GovLayer
+  participant "SQL\nOptimizer" as SQLOpt
+  participant "Duplicate\nDetector" as DupDetect
+  participant "SQL\nValidator" as SQLVal
+end box
+
+box "Unity Catalog" #E3F2FD
+  database "anomaly_check_config" as RuleDB
+  database "pipeline_registry" as PipelineReg
+  database "incident_context" as IncidentCtx
+  database "ANOMALIES" as AnomDB
+  database "evidence_log" as EvidenceDB
+end box
+
+box "D1/D2/D3 Workflows" #F8BBD0
+  participant "D1 Detection\nJob" as D1
+  participant "D2 Diagnosis\nWorkflow" as D2
+  participant "D3 Deflection\nWorkflow" as D3
+end box
+
+box "External Systems" #FFF9C4
+  participant "Jira/GitHub\nConfluence" as External
+  participant "Job Logs\nDelta History" as Telemetry
+end box
+
+==USE CASE 1: Rule Authoring (Interactive)==
+
+User -> UI : "Create null check for customer email"
+activate UI
+
+UI -> LG : User query + session
+activate LG
+
+LG -> Agents : Intent Router → Retrieval Agent
+activate Agents
+
+Agents -> LLM : Optimize query\n(extract: table, column, check_type)
+LLM --> Agents : Structured intent
+
+Agents -> VS : Retrieve CAG context\n(supported_checks, security_rules)
+VS --> Agents : Static catalog
+
+Agents -> VS : Retrieve CRAG context\n(SQL patterns, examples)
+VS --> Agents : Top-k chunks (confidence: HIGH)
+
+Agents -> LLM : Generate SQL\n(grounded by CAG + CRAG)
+LLM --> Agents : SQL + explanation
+
+Agents -> SecGuard : Validate security
+SecGuard -> SecGuard : Check SELECT-only,\nforbidden keywords
+SecGuard --> Agents : PASSED
+
+Agents -> GovLayer : Check governance
+GovLayer -> RuleDB : Query PII catalog
+RuleDB --> GovLayer : table.email = PII
+GovLayer --> Agents : PII flag (requires approval)
+
+Agents -> SQLOpt : Optimize SQL
+SQLOpt -> RuleDB : Query UC metadata
+RuleDB --> SQLOpt : Schema + partition info
+SQLOpt -> LLM : Generate optimized SQL
+LLM --> SQLOpt : Optimized + cost estimate
+SQLOpt --> Agents : Optimized SQL
+
+Agents -> DupDetect : Check duplicate
+DupDetect -> VS : Vector search (similar rules)
+VS --> DupDetect : Top-5 similar rules
+DupDetect -> LLM : Semantic comparison
+LLM --> DupDetect : No duplicate (similarity < 85%)
+DupDetect --> Agents : NO_DUPLICATE
+
+Agents -> SQLVal : Validate SQL
+SQLVal -> RuleDB : DESCRIBE table
+RuleDB --> SQLVal : Schema confirmation
+SQLVal -> LLM : Logical validation
+LLM --> SQLVal : Valid (quality: 9.2/10)
+SQLVal --> Agents : VALID
+
+Agents --> LG : Validated rule proposal
+deactivate Agents
+
+LG -> RuleDB : INSERT rule\n(status: PENDING_APPROVAL, is_active: false)
+RuleDB --> LG : rule_id
+
+LG -> External : Send approval request\n(DataGov approval for PII)
+
+LG --> UI : Rule created\nAwaiting approval (SLA: 48h)
+deactivate LG
+
+UI --> User : "Rule DQ_20260702_001 created\nApproval request sent to DataGov"
+deactivate UI
+
+note right
+  <b>Use Case 1 Complete</b>
+  User creates rule via chatbot
+  Multi-layer validation
+  Approval sent for PII table
+end note
+
+==USE CASE 2: Rule Approval & Activation==
+
+External -> RuleDB : Approval granted
+RuleDB -> RuleDB : UPDATE rule\n(status: ACTIVE, is_active: true)
+RuleDB -> User : Email notification
+
+note right
+  <b>Use Case 2 Complete</b>
+  Rule approved and activated
+  Now eligible for D1 execution
+end note
+
+==USE CASE 3: D1 Detection (Scheduled Execution)==
+
+D1 -> RuleDB : SELECT rules\nWHERE is_active = true\nAND (job_tag = this_job OR frequency matches)
+RuleDB --> D1 : Active rules for this job
+
+D1 -> PipelineReg : Load pipeline metadata
+PipelineReg --> D1 : Pipeline context
+
+D1 -> D1 : Execute DQ checks\n(Z-score, null_rate, freshness, drift)
+
+alt Anomaly Detected
+  D1 -> AnomDB : INSERT anomaly\n(severity: HIGH, z_score: 3.2)
+  D1 -> IncidentCtx : INSERT incident_context\n(signal_source: DATA_ANOMALY)
+  D1 -> External : Send P1 alert (Jira + Email)
+else No Anomaly
+  D1 -> RuleDB : Log execution (status: PASS)
+end
+
+note right
+  <b>Use Case 3 Complete</b>
+  D1 executes active rules
+  Anomaly written to Delta
+  Triggers D2 workflow
+end note
+
+==USE CASE 4: Pipeline Failure Detection==
+
+Telemetry -> D1 : Pipeline failure event\n(job_id, run_id, task_id, error)
+
+D1 -> PipelineReg : Query pipeline metadata
+PipelineReg --> D1 : owner, criticality, deps
+
+D1 -> IncidentCtx : INSERT incident_context\n(signal_source: PIPELINE_FAILURE,\nerror_type: TASK_TIMEOUT)
+
+D1 -> AnomDB : INSERT anomaly\n(severity: CRITICAL, failure_class: INFRA)
+
+D1 -> D2 : Trigger diagnosis workflow
+activate D2
+
+note right
+  <b>Use Case 4 Complete</b>
+  Pipeline failure detected
+  Unified incident_context
+  Triggers D2 diagnosis
+end note
+
+==USE CASE 5: D2 Diagnosis (Async Workflow)==
+
+D2 -> IncidentCtx : Read incident_context
+IncidentCtx --> D2 : Full incident payload
+
+D2 -> D2 : Signal Classifier\n(Pipeline failure vs Data anomaly)
+
+D2 -> Telemetry : Retrieve job logs
+Telemetry --> D2 : Task stderr/stdout
+
+D2 -> Telemetry : Query DESCRIBE HISTORY
+Telemetry --> D2 : Recent table operations
+
+D2 -> PipelineReg : Deployment correlation\n(recent code changes?)
+PipelineReg --> D2 : Git commit from 2h ago
+
+D2 -> External : GitHub code search
+External --> D2 : Recent PR changed schema
+
+D2 -> External : Confluence runbook search
+External --> D2 : Runbook: "Schema Migration SOP"
+
+D2 -> External : ITSM prior incidents
+External --> D2 : Similar incident resolved 30d ago
+
+D2 -> VS : RAG: Search incident_kb
+VS --> D2 : Similar root cause (schema mismatch)
+
+D2 -> LLM : Compile evidence into playbook
+LLM --> D2 : Root cause: Schema version mismatch\nPrescription: Rollback + schema migration
+
+D2 -> EvidenceDB : INSERT evidence_bundle\n(job_log, delta_history, runbook, code_refs,\nsimilar_incidents, root_cause)
+
+D2 -> D3 : Trigger deflection workflow\n(prescription + evidence_bundle)
+deactivate D2
+
+note right
+  <b>Use Case 5 Complete</b>
+  D2 gathers evidence
+  Identifies root cause
+  Compiles playbook
+  Triggers D3
+end note
+
+==USE CASE 6: D3 Deflection (Approval + Remediation)==
+
+activate D3
+
+D3 -> EvidenceDB : Load evidence_bundle
+EvidenceDB --> D3 : Complete diagnostic context
+
+D3 -> D3 : State Validator\n(Is corruption still present?)
+
+alt Corruption resolved externally
+  D3 -> AnomDB : UPDATE status = RESOLVED_EXTERNALLY
+  D3 -> User : Notification: "Issue auto-resolved"
+else Corruption present
+  D3 -> RuleDB : Query remediation_policy
+  RuleDB --> D3 : auto_fix_allowed: false (schema change)\nblast_radius: 12 tables\napproval_required: true
+  
+  D3 -> D3 : Circuit Breaker\n(High blast radius → Approval Gate)
+  
+  D3 -> LLM : Format diagnostic summary
+  LLM --> D3 : Human-readable summary
+  
+  D3 -> External : Jira approval ticket\n+ Email to PO/TL
+  
+  External -> D3 : Approval granted (click-to-approve)
+  
+  D3 -> D3 : Domain Executor\n(Execute schema migration playbook)
+  
+  D3 -> External : GitHub: Create PR with schema fix
+  D3 -> Telemetry : Restart pipeline (with fix)
+  
+  D3 -> D3 : E2E verification\n(Re-run DQ checks)
+  
+  alt Fix successful
+    D3 -> AnomDB : UPDATE status = RESOLVED
+    D3 -> VS : Update incident_kb\n(successful resolution)
+    D3 -> RuleDB : Update baseline (feedback loop)
+    D3 -> User : "Incident resolved\nPipeline restarted successfully"
+  else Fix failed
+    D3 -> AnomDB : UPDATE status = REMEDIATION_FAILED
+    D3 -> External : Escalate to L2 support
+  end
+end
+
+deactivate D3
+
+note right
+  <b>Use Case 6 Complete</b>
+  D3 validates state
+  Routes via policy
+  Human approval for high-risk
+  Auto-fix + verification
+  Feedback to baseline
+end note
+
+==USE CASE 7: Interactive Diagnosis Query==
+
+User -> UI : "Why did customer pipeline fail yesterday?"
+activate UI
+
+UI -> LG : Diagnosis query
+activate LG
+
+LG -> Agents : Log Analysis Agent
+activate Agents
+
+Agents -> IncidentCtx : Query recent incidents\n(pipeline_id, date range)
+IncidentCtx --> Agents : Matching incidents
+
+Agents -> EvidenceDB : Load evidence_bundle
+EvidenceDB --> Agents : Root cause + resolution
+
+Agents -> VS : RAG: Similar incidents
+VS --> Agents : Historical patterns
+
+Agents -> LLM : Summarize diagnosis
+LLM --> Agents : "Pipeline failed due to schema mismatch.\nRoot cause: Column 'email' renamed to 'email_address'.\nResolution: Schema migration applied.\nStatus: Resolved at 14:23 UTC."
+
+Agents --> LG : Structured response
+deactivate Agents
+
+LG --> UI : Diagnosis summary
+deactivate LG
+
+UI --> User : "Pipeline failed due to schema mismatch...\n[View Evidence] [View Timeline]"
+deactivate UI
+
+note right
+  <b>Use Case 7 Complete</b>
+  User queries past incidents
+  Agent retrieves evidence
+  LLM summarizes
+  Interactive response
+end note
+
+legend right
+  <b>End-to-End Component Interactions Summary</b>
+  
+  <b>Use Case 1: Rule Authoring (Interactive)</b>
+    User → UI → LangGraph → Agents
+    → LLM + AI Search (CAG + CRAG)
+    → Security + Governance + Validation
+    → Delta (PENDING_APPROVAL)
+    → External (Approval Request)
+  
+  <b>Use Case 2: Rule Approval</b>
+    External → Delta (ACTIVE)
+    → User (Notification)
+  
+  <b>Use Case 3: D1 Detection (Scheduled)</b>
+    D1 → Delta (Read rules)
+    → Execute checks
+    → Delta (Write anomalies)
+    → Trigger D2
+  
+  <b>Use Case 4: Pipeline Failure</b>
+    Telemetry → D1 (Failure event)
+    → Delta (incident_context)
+    → Trigger D2
+  
+  <b>Use Case 5: D2 Diagnosis (Async)</b>
+    D2 → Delta (Read incident)
+    → Telemetry (Logs/History)
+    → External (GitHub/Confluence/ITSM)
+    → AI Search (incident_kb)
+    → LLM (Playbook)
+    → Delta (evidence_log)
+    → Trigger D3
+  
+  <b>Use Case 6: D3 Deflection (Approval + Fix)</b>
+    D3 → Delta (Policy/Evidence)
+    → Circuit Breaker (Risk check)
+    → External (Approval)
+    → Execute fix
+    → Verification
+    → Delta (Update status + baseline)
+  
+  <b>Use Case 7: Interactive Diagnosis</b>
+    User → UI → LangGraph → Agents
+    → Delta (incident_context + evidence_log)
+    → AI Search (incident_kb)
+    → LLM (Summarize)
+    → UI (Response)
+  
+  <b>Key A2A Communication Patterns:</b>
+  - <b>Interactive (UC1, UC7):</b> LangGraph state
+  - <b>Async (UC3-6):</b> Delta + Workflow triggers
+  - <b>External:</b> REST/MCP adapters
+  
+  <b>Technologies Used:</b>
+  - <b>Databricks Apps:</b> UI hosting
+  - <b>LangGraph:</b> Agent orchestration
+  - <b>Mosaic AI:</b> LLM inference
+  - <b>AI Search:</b> RAG retrieval
+  - <b>Unity Catalog:</b> Data layer
+  - <b>Workflows:</b> D1/D2/D3 execution
+  - <b>External APIs:</b> Jira/GitHub/Confluence/ITSM
+endlegend
+
+@enduml

@@ -1,0 +1,172 @@
+@startuml BUSINESS_ARCHITECTURE_ANALYTICS_DP_LINEAGE_V2
+
+top to bottom direction
+
+skinparam backgroundColor #ffffff
+skinparam defaultFontName Segoe UI
+skinparam defaultFontSize 11
+skinparam shadowing false
+skinparam roundCorner 10
+skinparam ArrowColor #546E7A
+skinparam ArrowThickness 1.5
+skinparam RectangleBackgroundColor #FAFAFA
+skinparam RectangleBorderColor #90A4AE
+skinparam RectangleBorderThickness 1
+skinparam RectangleFontColor #263238
+skinparam PackageBorderColor #455A64
+skinparam PackageBorderThickness 2
+skinparam PackageFontColor #263238
+skinparam PackageFontStyle bold
+skinparam PackageFontSize 12
+skinparam NoteFontSize 9
+skinparam NoteBorderColor #B0BEC5
+skinparam NoteBackgroundColor #FAFAFA
+
+title <size:14>Mission DataTrust 2.0  |  3D Data Quality Framework</size>
+
+' ════════════════════════════════════════════════════════
+' ROW 1 — STAKEHOLDERS
+' ════════════════════════════════════════════════════════
+package "Stakeholders" as STK #FFF3E0 {
+  actor "Data\nEngineer" as DE
+  actor "Business\nAnalytics" as AC
+  actor "Product\nOwner" as PO
+  actor "Platform\nOperations\n(Data Opps)" as OPS
+  actor "Tech\nLead" as TL
+  actor "Data\nGovernance" as DG
+
+  DE -[hidden]right-> AC
+  AC -[hidden]right-> PO
+  PO -[hidden]right-> OPS
+  OPS -[hidden]right-> TL
+  TL -[hidden]right-> DG
+}
+
+' ════════════════════════════════════════════════════════
+' ROW 2 — TRIGGER (external, sits between STK and DRE)
+' ════════════════════════════════════════════════════════
+rectangle "Trigger Strategy &\nEvent Intake" as C0 #E8F5E9
+
+' ════════════════════════════════════════════════════════
+' MISSION INTENT - EXECUTIVE SUMMARY
+' ════════════════════════════════════════════════════════
+rectangle "Mission Intent\nTrust by design • Prevent before detect • Automate with governance" as M0 #E1F5FE
+
+' ════════════════════════════════════════════════════════
+' ROW 3 — DRE 3D VALUE CHAIN
+' ════════════════════════════════════════════════════════
+package "DRE 3D Business Value Chain" as DRE #E3F2FD {
+
+  package "DETECTION - Observe [Business KPI: DRRI]" as D1 #FFCDD2 {
+    package "Anomaly Detection and Risk Signals" as D1_AD #FFE0B2 {
+      rectangle "Volume Anomalies\n(Z-score)" as C1 #E8F5E9
+      rectangle "Distribution Drift\n(Categorical shifts, % deviation)" as C2 #E8F5E9
+      rectangle "Behavioral Anomalies\n(Bot/fraud: rapid deletes, tier jumps)" as C8 #E8F5E9
+    }
+    rectangle "DRRI 5D Quality Rules\n(Freshness | Accuracy | Completeness\nConsistency | Validity)" as C3 #E8F5E9
+    rectangle "Alerting &\nNotification" as C10 #E8F5E9
+    rectangle "<b>Agents:</b> Profiler\nBaseline Learner" as A_D1 #FFF9C4
+  }
+
+  package "DIAGNOSIS - Diagnose + Decide" as D2 #F8BBD0 {
+    rectangle "Incident Triage\n& Resolution" as C6 #E8F5E9
+    rectangle "<b>Agents:</b> Drift Classifier · Lineage Tracer\nSegment Slicer · Playbook Compiler\nPrescription Router" as A_D2 #FFF9C4
+  }
+
+  package "DEFLECTION - Act + Assure" as D3 #CE93D8 {
+    rectangle "Data Contract\nManagement" as C4 #E8F5E9
+    rectangle "Audit &\nCompliance" as C7 #E8F5E9
+    rectangle "Automated Remediation\n& Recovery" as C9 #E8F5E9
+    rectangle "<b>Agents:</b> State Validator · Circuit Breaker\nApproval Gate · Domain Executors" as A_D3 #FFF9C4
+  }
+
+  D1 -right-> D2 : anomaly handover
+  D2 -right-> D3 : prescription handover
+}
+
+' ════════════════════════════════════════════════════════
+' ROW 4 — BUSINESS OUTCOMES
+' ════════════════════════════════════════════════════════
+package "Business Outcomes" as OUT #F1F8E9 {
+  rectangle "Trusted\nBusiness Decisions\n[DRRI]" as O1
+  rectangle "Faster\nIncident Resolution\n[MTTD, ACR]" as O2
+  rectangle "Lower\nOperational Risk\n[UAR]" as O3
+  rectangle "Audit-ready\nCompliance\n[Deflection Rate]" as O4
+  rectangle "Higher\nAutomation Coverage\n[Auto-remediation %]" as O5
+  rectangle "Reclaimed\nEngineering Capacity\n[Hours/FTE Saved]" as O6
+
+  O1 -[hidden]right-> O2
+  O2 -[hidden]right-> O3
+  O3 -[hidden]right-> O4
+  O4 -[hidden]right-> O5
+  O5 -[hidden]right-> O6
+}
+
+' ════════════════════════════════════════════════════════
+' LAYOUT — strict vertical centred chain
+' Strategy:
+'   • STK anchors to C0 from both ends (left-most DE and right-most DG)
+'     so C0 sits CENTRED below the Stakeholders row.
+'   • C0 anchors to D1 (left) and D3 (right) ends of DRE so DRE sits
+'     CENTRED below C0.
+'   • Three parallel rails D1→O1, D2→O3, D3→O6 force OUT directly
+'     BELOW DRE and lock phase ordering Detection→Diagnosis→Deflection.
+'   • NO back-edges, NO side notes (both flip ordering / push OUT sideways).
+' ════════════════════════════════════════════════════════
+DE -[hidden]down- M0
+DG -[hidden]down- M0
+
+M0 -[hidden]down- C0
+
+C0 -down-> D1 : trigger 3D framework
+C0 -[hidden]down- D3
+
+D1 -[hidden]down- O1
+D2 -[hidden]down- O3
+D3 -[hidden]down- O6
+
+' ════════════════════════════════════════════════════════
+' NOTES — kept close to their parents
+' ════════════════════════════════════════════════════════
+note bottom of C0
+  **Best Trigger Strategies**
+  1) Event-based: upstream job end (success/failure)
+  2) Lineage-aware fanout: marked downstream by priority
+  3) Priority queue: P1 -> P2 -> P3
+  4) Threshold breach: volume / drift / quality violations
+  5) Time-window scan: periodic safety-net runs
+  6) Change-triggered: schema / contract / version changes
+  7) Retry/backoff: transient failures with cooldown
+  8) Suppression: dedupe + alert fatigue controls
+end note
+
+note bottom of OUT
+  **Outcome KPI Targets**
+  DRRI (Detection) >95%  |  UAR 0-10%  |  ACR >85%
+  Deflection Rate: % anomalies auto-handled
+  Reclaimed Capacity: engineering hours / FTE returned
+
+  **DRE Phase -> Outcome mapping**
+  D1 Detection  -> Higher Data Trust, Proactive Risk Detection
+  D2 Diagnosis  -> Faster MTTD, Reduced Change Risk
+  D3 Deflection -> Audit-ready Governance, Continuous Improvement
+
+  **Feedback loop**
+  D3 Deflection learnings flow back into D1 Detection rules
+end note
+
+' ════════════════════════════════════════════════════════
+' LEGEND
+' ════════════════════════════════════════════════════════
+legend right
+  |= Layer |= Color |
+  | Stakeholders | <#FFF3E0> |
+  | Trigger | <#E8F5E9> |
+  | DETECTION (Observe) | <#FFCDD2> |
+  | DIAGNOSIS (Diagnose+Decide) | <#F8BBD0> |
+  | DEFLECTION (Act+Assure) | <#CE93D8> |
+  | **Agents** | <#FFF9C4> |
+  | Outcomes | <#F1F8E9> |
+endlegend
+
+@enduml

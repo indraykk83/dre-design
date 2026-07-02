@@ -1,0 +1,135 @@
+@startuml 11_Approval_Workflow
+!theme plain
+title 3D Data Quality Framework -- Approval Workflow & Governance
+
+skinparam backgroundColor #FAFAFA
+skinparam sequence {
+  ArrowColor #546E7A
+  ActorBorderColor #263238
+  LifeLineBorderColor #B0BEC5
+  ParticipantBorderColor #90A4AE
+  ParticipantBackgroundColor #ECEFF1
+}
+
+actor       "Rule Submitter\n(Data Engineer / BA)" as Submitter
+participant "Genie Space\n(DQ Assistant Chat)"             as Agent
+participant "Approval Gateway"                      as Gateway
+database    "anomaly_check_config\n(Delta)"          as RuleDB
+database    "rule_audit_log\n(Delta)"                as AuditDB
+participant "Notification Service"                  as Notify
+note right of Notify
+  Channels: Email + Jira ticket\n  Email: approval request / outcome\n  Jira: auto-created approval ticket\n        assigned to PO / Tech Lead
+end note
+actor       "Product Owner"                         as PO
+actor       "Tech Lead"                             as TL
+participant "Approval Dashboard\n(Genie Space - Owner view)" as Dashboard
+
+== [1] Rule Submission ==
+
+Submitter -> Agent   : Submit validated rule\n(SQL + metadata + trend score)
+activate Agent
+Agent -> Gateway     : Route rule for approval
+activate Gateway
+
+Gateway -> RuleDB    : SELECT owner_email, tech_lead_email\nFROM   data_product_config\nWHERE  schema = rule.schema
+RuleDB  --> Gateway  : {owner: "po@adidas.com",\n tech_lead: "tl@adidas.com"}
+
+Gateway -> Gateway   : Evaluate: submitter_id == owner_id?
+
+== [2A] Self-Approval Path (Submitter IS the Owner) ==
+
+alt Submitter IS the Owner
+
+  Gateway -> RuleDB   : UPDATE anomaly_check_config\nSET    status        = 'ACTIVE',\n       auto_approved  = true,\n       approved_by    = submitter_id,\n       approved_at    = NOW(),\n       version        = 1
+  Gateway -> AuditDB  : LOG: AUTO_APPROVED\n{actor, rule_id, timestamp, "submitter_is_owner"}
+  Gateway --> Agent   : Auto-approved [OK]
+  Agent --> Submitter : [OK] Rule ACTIVE immediately\nRule ID: {rule_id}\nNo approval required -- you are the owner\nNext run: {next_scheduled_run}
+
+== [2B] Review Required Path (Different Owner) ==
+
+else Submitter IS NOT the Owner
+
+  Gateway -> RuleDB   : UPDATE anomaly_check_config\nSET status = 'PENDING_APPROVAL',\n    submitted_at = NOW()
+  Gateway -> AuditDB  : LOG: SUBMITTED_FOR_REVIEW\n{submitter, rule_id, timestamp}
+
+  ' Notify approvers
+  Gateway -> Notify   : Send approval request
+  activate Notify
+  Notify -> PO  : Email + Jira ticket:\n"New DQ rule pending your approval\nRule: {rule_name}\nTable: {table_name}\nTrend Score: {pass_pct}% pass / {fail_pct}% fail\nSubmitted by: {submitter_name}\n\n[Open Review Dashboard]"
+  Notify -> TL  : CC: Technical review requested\n"{rule_name} -- SQL complexity {cost_dbu} DBU"
+  deactivate Notify
+
+  Gateway --> Agent   : [wait] Pending approval -- approvers notified
+  Agent --> Submitter : Rule submitted for approval\nApprovers notified: {po_email}\nSLA: 48 hours\nTrack status in Genie Space
+  deactivate Agent
+
+  == [3] Approver Review ==
+
+  PO -> Dashboard     : Open Approval Dashboard
+  activate Dashboard
+  Dashboard -> RuleDB : SELECT * FROM anomaly_check_config\nWHERE status='PENDING_APPROVAL'\n  AND schema IN (owned_schemas)
+  RuleDB --> Dashboard : Pending rules list
+
+  Dashboard --> PO    : Show rule details:\n- SQL with syntax highlighting\n- Trend score + explanation (pass/fail %)\n- Column data classification (PII?)\n- Estimated execution cost\n- Duplicate similarity report\n- Submitter notes
+
+  PO -> TL            : (Optional) Request TL technical review
+  TL --> PO           : Technical feedback on SQL + performance
+
+  == [4A] Approved ==
+
+  alt PO Approves
+
+    PO -> Dashboard   : Click APPROVE\n(optional: add comment)
+    Dashboard -> RuleDB : UPDATE anomaly_check_config\nSET status = 'ACTIVE',\n    approved_by = po_id,\n    approved_at = NOW()
+    Dashboard -> AuditDB : LOG: APPROVED\n{approver, rule_id, comment, timestamp}
+    Dashboard -> Notify  : Notify submitter -- APPROVED
+    activate Notify
+    Notify -> Submitter : [OK] Rule approved!\nRule ID: {rule_id} is now ACTIVE\nApproved by: {po_name}\nComment: {optional_comment}
+    deactivate Notify
+
+  == [4B] Rejected ==
+
+  else PO Rejects
+
+    PO -> Dashboard   : Click REJECT\n(rejection reason is REQUIRED)
+    Dashboard -> RuleDB  : UPDATE anomaly_check_config\nSET status = 'REJECTED',\n    rejection_reason = '{reason}'
+    Dashboard -> AuditDB : LOG: REJECTED\n{approver, rule_id, reason, timestamp}
+    Dashboard -> Notify  : Notify submitter -- REJECTED
+    activate Notify
+    Notify -> Submitter : Rule rejected\nReason: {rejection_reason}\nRevise in Genie Space and resubmit
+    deactivate Notify
+
+  == [4C] Sent Back for Revision ==
+
+  else PO Requests Revision
+
+    PO -> Dashboard   : Click REVISE\n(revision notes required)
+    Dashboard -> RuleDB  : UPDATE anomaly_check_config\nSET status = 'DRAFT'
+    Dashboard -> AuditDB : LOG: REVISION_REQUESTED\n{approver, rule_id, notes, timestamp}
+    Dashboard -> Notify  : Notify submitter -- REVISION NEEDED
+    activate Notify
+    Notify -> Submitter : Revision required\nFeedback: {revision_notes}\nEdit your rule in Genie Space
+    deactivate Notify
+
+  end
+
+  deactivate Dashboard
+  deactivate Gateway
+
+  == [5] SLA Enforcement (Maintenance Job) ==
+
+  note over Gateway, Notify
+    Automated SLA enforcement (runs daily via Rule Maintenance Job):
+    +-------------------------------------------------------------+
+    |  +24 hrs  -> Reminder to approver (PO + TL)                  |
+    |  +48 hrs  -> Escalate to Tech Lead + DataOps                 |
+    |  +72 hrs  -> Escalate to Data Governance                     |
+    |  +96 hrs  -> Rule auto-returned to DRAFT;                    |
+    |           submitter + original owner alerted               |
+    +-------------------------------------------------------------+
+    All escalations logged to rule_audit_log.
+  end note
+
+end
+
+@enduml

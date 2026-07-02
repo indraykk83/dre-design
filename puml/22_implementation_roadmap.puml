@@ -1,0 +1,123 @@
+@startuml 22_Implementation_Roadmap
+!theme plain
+title DRE 3D Framework -- Implementation Roadmap & Milestones
+
+skinparam backgroundColor #FAFAFA
+skinparam defaultFontName Segoe UI
+skinparam defaultFontSize 11
+skinparam rectangle {
+  RoundCorner 8
+  FontSize 11
+}
+skinparam note {
+  BackgroundColor #FFFDE7
+  BorderColor #F9A825
+}
+
+left to right direction
+
+' =============================================================
+' CURRENT STATE (pre Q3-2026)
+' =============================================================
+rectangle "Today\nJun 2026" as TODAY #F5F5F5 {
+  rectangle "D1 core engine\nbuilt (GE-based)" as T1 #ECEFF1
+  rectangle "Architecture\ndiagrams complete\n(22 PUML diagrams)" as T2 #ECEFF1
+  rectangle "Compliance scanner\ninstalled\n(arch_compliance/)" as T3 #C8E6C9
+}
+
+' =============================================================
+' Q3-2026  -- Foundation
+' =============================================================
+rectangle "Q3-2026\nFoundation" as Q3 #FFF9C4 {
+  rectangle "1. D1 MVP\nLive on Prod\n[core engine]" as Q3_1 #FFEB3B
+  rectangle "2. Architecture\nFinalized for\n3D Framework\n[22 diagrams +\nspec locked]" as Q3_2 #FFEB3B
+  rectangle "3. Scope for\nD2 & D3\nagreed and\nfinalized" as Q3_3 #FFEB3B
+  rectangle "4. Compliance\nBaseline\nEstablished\n[pre-commit +\nCI scan active]" as Q3_4 #C8E6C9
+}
+
+' =============================================================
+' Q4-2026  -- Build D2 + D3 Foundation
+' =============================================================
+rectangle "Q4-2026\nBuild D2 + D3 Foundation" as Q4 #FFE0B2 {
+  rectangle "1. Kick off dev\nfor D2\n[Drift Classifier,\nLineage Tracer,\nSegment Slicer,\nPlaybook Compiler]" as Q4_1 #FF9800
+  rectangle "2. Kick off D3\n(No-domain agents)\n[Circuit Breaker,\nState Validator,\nNotification]" as Q4_2 #FF9800
+  rectangle "3. Business &\nMarket rollout\nfor D1\n[all gold tables\ncovered]" as Q4_3 #FF9800
+  rectangle "4. POC for domain\nexpert agents\n[1 domain\nproof of concept]" as Q4_4 #FF9800
+  rectangle "5. Compliance\nrules extended\nto D2 components\n[new spec entries]" as Q4_5 #C8E6C9
+}
+
+' =============================================================
+' Q1-2027  -- D2/D3 Production
+' =============================================================
+rectangle "Q1-2027\nD2/D3 Production" as Q1_27 #FFCCBC {
+  rectangle "1. Kick off dev\nfor domain\nexpert agents\n[3 pilot domains]" as Q1_1 #E64A19
+  rectangle "2. Rollout D2,D3\nagents (non-domain)\nin prod to test\nwith real data" as Q1_2 #E64A19
+  rectangle "3. Business user\ntraining on D1 & D2\n+ adapt to feedback\n[DRRI dashboards live]" as Q1_3 #E64A19
+  rectangle "4. Compliance\nenforcement full\n[all agent layers\ncovered in spec]" as Q1_4 #C8E6C9
+}
+
+' =============================================================
+' Q2-2027  -- Domain Scale-Out
+' =============================================================
+rectangle "Q2-2027\nDomain Scale-Out" as Q2_27 #FCE4EC {
+  rectangle "1. Rollout 3 pilot\ndomain expert agents\nto production\n[adiClub, Pricing,\nClickstream]" as Q2_1 #880E4F
+  rectangle "2. Auto-tuning\nCRAG thresholds\nper domain\n[feedback loop active]" as Q2_2 #880E4F
+  rectangle "3. Compliance\ncoverage 100%\nException registry\nreviewed + cleaned" as Q2_3 #C8E6C9
+}
+
+' =============================================================
+' BUSINESS OUTCOMES (target at Q2-2027)
+' =============================================================
+rectangle "Target Outcomes\n@ Q2-2027" as OUTCOMES #E8F5E9 {
+  rectangle "DRRI > 95%\nper domain" as O1 #A5D6A7
+  rectangle "MTTD\n48h -> 4-8h" as O2 #A5D6A7
+  rectangle "MTTR\n4-8h -> 44min" as O3 #A5D6A7
+  rectangle "40% toil\nreduction" as O4 #A5D6A7
+  rectangle "100% gold layer\nrule coverage" as O5 #A5D6A7
+}
+
+' =============================================================
+' FLOW
+' =============================================================
+TODAY  -right-> Q3     : architecture\nlocked
+Q3     -right-> Q4     : D1 in prod\nD2/D3 scoped
+Q4     -right-> Q1_27  : D2/D3 built\nD1 at scale
+Q1_27  -right-> Q2_27  : D2/D3 in prod\ndomain agents started
+Q2_27  -down->  OUTCOMES : all 3D layers live
+
+' =============================================================
+' COMPLIANCE THREAD (green path)
+' =============================================================
+T3       ..right..> Q3_4   : baseline scan
+Q3_4     ..right..> Q4_5   : extended rules
+Q4_5     ..right..> Q1_4   : full enforcement
+Q1_4     ..right..> Q2_3   : 100% coverage
+
+note as RoadmapNote
+  <b>How architecture compliance maps to milestones</b>
+  ---------------------------------------------------------
+  Q3-2026: architecture_spec.yaml locked. Pre-commit hooks
+    installed on all developer machines. CI scan running
+    on every PR. Baseline exceptions registered.
+
+  Q4-2026: Compliance rules extended to cover D2 components
+    (Drift Classifier, Lineage Tracer, Segment Slicer).
+    Agent hierarchy checks enforced (L3 -> L4 transition).
+    D3 no-domain agent boundaries added to spec.
+
+  Q1-2027: Full compliance enforcement across all D2/D3 agent
+    code. CRAG threshold checks active. DRRI metric
+    definition locked in spec. Exception registry audited.
+
+  Q2-2027: Domain agent compliance (domain-specific check types
+    registered per domain). CRAG auto-tuning results feed
+    back into spec thresholds. Clean exception registry
+    (no TECHNICAL_DEBT older than 6 months).
+
+  <b>Decision rule at every milestone</b>
+  Deviation found -> Fix code | Update spec+PUML | Register exception
+  Expired exception -> Fix code or renew with approval
+  New capability -> Update spec first, then implement
+end note
+
+@enduml

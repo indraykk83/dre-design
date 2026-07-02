@@ -1,0 +1,134 @@
+@startuml 29_execution_d1_d2_d3_layer
+!theme plain
+title Databricks-Native DQ Platform -- D1/D2/D3 Execution Layer
+
+skinparam rectangle {
+  BackgroundColor #E3F2FD
+  BorderColor #1565C0
+  RoundCorner 10
+}
+skinparam database {
+  BackgroundColor #E8F5E9
+  BorderColor #2E7D32
+}
+
+database "Unity Catalog Tables" as UCTables {
+  database "anomaly_check_config\n(Rule Registry)"
+  database "pipeline_registry\n(Pipeline Metadata)"
+  database "remediation_policy\n(Auto-fix Policy)"
+  database "incident_context\n(Unified Signal)"
+  database "DIGITAL_DATA_ANOMALIES\n(Anomaly Events)"
+  database "diagnosis_evidence_log\n(D2 Evidence)"
+}
+
+package "D1 Detection (Databricks Workflow)" {
+  rectangle "Pipeline Failure Monitor" as PFM {
+    component "Jobs API listener"
+    component "Task failure classifier"
+  }
+  
+  rectangle "ANOMALY_DETECTION_JOB" as DetJob {
+    component "Z-score checks"
+    component "Freshness SLA"
+    component "Drift detection"
+  }
+}
+
+package "D2 Diagnosis (Databricks Workflow)" {
+  rectangle "Signal Classifier" as SC {
+    component "Pipeline vs Data"
+    component "Infra vs Code"
+  }
+  
+  rectangle "Evidence Retriever" as ER {
+    component "Job logs"
+    component "Delta history"
+    component "Runbooks (Confluence)"
+    component "Code search (GitHub)"
+    component "Prior incidents (ITSM)"
+  }
+  
+  rectangle "Deployment Correlator" as DC {
+    component "Recent code changes"
+    component "Bundle version delta"
+  }
+  
+  rectangle "Playbook Compiler" as PC {
+    component "Match SOP"
+    component "Generate fix recipe"
+  }
+}
+
+package "D3 Deflection (Databricks Workflow)" {
+  rectangle "Circuit Breaker" as CB {
+    component "Query policy"
+    component "Blast radius check"
+    component "PII gate"
+  }
+  
+  rectangle "Approval Gate" as AG {
+    component "Format summary"
+    component "Jira/Email request"
+    component "48h SLA"
+  }
+  
+  rectangle "Domain Executors" as DE {
+    component "Auto-fix with policy"
+    component "Pipeline restart"
+    component "E2E verification"
+  }
+  
+  rectangle "Feedback Learner" as FL {
+    component "Fix outcome tracking"
+    component "Update incident_kb"
+    component "Policy calibration"
+  }
+}
+
+cloud "External Systems" as Ext {
+  [Jira]
+  [GitHub]
+  [Confluence]
+  [ITSM]
+}
+
+UCTables --> PFM : Pipeline metadata
+UCTables --> DetJob : Read active configs
+PFM --> UCTables : Write incident_context
+DetJob --> UCTables : Write anomalies
+
+UCTables --> SC : Read incident_context
+SC --> ER : Classified incident
+ER --> Ext : Evidence retrieval
+ER --> DC : Log analysis
+DC --> PC : Evidence bundle
+PC --> UCTables : Write evidence_log
+
+UCTables --> CB : Read policy + evidence
+CB --> AG : High-risk incidents
+CB --> DE : Auto-fix approved
+AG --> Ext : Approval request
+DE --> FL : Fix outcome
+FL --> UCTables : Update incident_kb
+
+note right of UCTables
+  <b>incident_context:</b>
+  Unified object for both
+  pipeline failures and
+  data anomalies
+end note
+
+note bottom of ER
+  <b>A2A Communication:</b>
+  D1 -> D2 -> D3 via
+  Delta tables + triggers
+end note
+
+note bottom of FL
+  <b>Feedback Loop:</b>
+  Outcomes fed back to
+  baselines, policy, and
+  incident knowledge base
+end note
+
+@enduml

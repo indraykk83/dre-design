@@ -1,0 +1,283 @@
+@startuml 08_User_Journey
+!theme plain
+
+skinparam backgroundColor #F5F7FA
+skinparam defaultFontName Arial
+skinparam defaultFontSize 11
+skinparam Padding 5
+skinparam ArrowThickness 1.5
+
+skinparam title {
+  FontSize 17
+  FontStyle bold
+  FontColor #1A237E
+  BackgroundColor #E8EAF6
+  BorderColor #3F51B5
+  BorderThickness 2
+}
+
+skinparam activity {
+  BackgroundColor #FFFFFF
+  BorderColor #78909C
+  BorderThickness 1.5
+  ArrowColor #455A64
+  FontColor #263238
+  FontSize 11
+  StartColor #2E7D32
+  EndColor #C62828
+  DiamondBackgroundColor #FFFDE7
+  DiamondBorderColor #FFA000
+  DiamondFontColor #4E342E
+}
+
+skinparam note {
+  BackgroundColor #FFF8E1
+  BorderColor #FFB300
+  FontColor #4E342E
+  FontSize 10
+  BorderThickness 1.5
+}
+
+title <b>3D Data Quality Framework  \u00b7  DQ Rule User Journey</b>\n<size:12>Discover  \u2192  Create  \u2192  Validate  \u2192  Review  \u2192  Approve  \u2192  Deploy  \u2192  Monitor  \u2192  Improve</size>
+
+|#BBDEFB| User |
+|#C8E6C9| Genie Space |
+|#FFE082| DQ Backend App |
+|#F8BBD0| Approval Gateway |
+|#D1C4E9| Platform (Automated) |
+
+legend top left
+  <b><size:12>Rule Lifecycle States</size></b>
+  <font color="#F57F17"><b>PROPOSED</b></font> \u2192 <font color="#1565C0"><b>PENDING_APPROVAL</b></font> \u2192 <font color="#2E7D32"><b>APPROVED</b></font> \u2192 <font color="#1B5E20"><b>ACTIVE</b></font>
+                               \u2514\u2192 <font color="#B71C1C"><b>REJECTED</b></font>  (revise & resubmit)
+  <font color="#1B5E20"><b>ACTIVE</b></font> \u2194 <font color="#616161"><b>INACTIVE / DISABLED</b></font>   (pause or kill-switch)
+  <font color="#1B5E20"><b>ACTIVE</b></font> \u2192 <font color="#757575"><b>DEPRECATED</b></font> \u2192 <font color="#424242"><b>ARCHIVED</b></font>
+endlegend
+
+start
+
+'
+' -------------------------------------
+'  PHASE 1 . DISCOVER
+' -------------------------------------
+|User|
+#1565C0:<color:#FFFFFF><b>  \u2460 DISCOVER  \u00b7  Explore & Ask Questions  </b></color>;
+
+:Open **Genie Space**\n//DQ Assistant chat in Databricks//;
+note right #BBDEFB: Authenticated via Databricks SSO\nWorkspace identity auto-applied
+
+|Genie Space|
+:Greet user -- present options:\n  \u2022 Ask Q&A about data quality\n  \u2022 Propose a new DQ rule\n  \u2022 Browse rules + coverage gaps\n  \u2022 Check execution results / trends\n  \u2022 Manage exceptions;
+
+repeat
+  |User|
+  :Ask a natural language question:\n  //"DRRI score for gold.customer?"//\n  //"Which jobs failed last night?"//\n  //"Anomalies for adiClub orders this week"//\n  //"Top 5 noisiest rules by false positives"//;
+
+  |Genie Space|
+  :Classify intent = **READ**\nGenerate **SELECT** SQL -- read-only via Unity Catalog;
+  note right #C8E6C9
+    Queries live Delta tables:
+    \u2022 anomaly_check_config
+    \u2022 check_execution_log
+    \u2022 DIGITAL_DATA_ANOMALIES
+    \u2022 table_daily_metrics
+  end note
+
+  :Return structured answer:\n  //"DRRI: 72/100 -- 3 failing checks + freshness drift"//\n  //"Run #4821 FAILED -- timeout on fact_sales"//;
+
+  |User|
+  :Read answer \u00b7 drill down\n//filter by market, brand, date, column//;
+repeat while (More questions?) is (Yes) not (No -- done)
+
+|Genie Space|
+:Summarise coverage gaps\nand recommended next checks;
+note right #C8E6C9: Any answer can pivot directly\ninto **CREATE** to close a gap
+
+'
+' -------------------------------------
+'  PHASE 2 . CREATE
+' -------------------------------------
+|User|
+#2E7D32:<color:#FFFFFF><b>  \u2461 CREATE  \u00b7  Propose a New DQ Rule  </b></color>;
+
+:Type rule request in natural language\n//"Create a null check for customer_email in gold.customer"//;
+
+|Genie Space|
+:Classify intent = **WRITE**\nInvoke DQ Backend App via UC tool;
+
+|DQ Backend App|
+:Map request to known DQ check catalog;
+
+if (Check type supported?) then (No -- new type)
+  :Inform user -- collect details:\n  1) Business intent\n  2) Pass / fail condition\n  3) Target table + columns\n  4) Threshold\n  5) Sample expectation;
+
+  |User|
+  :Describe rule intent\n//(or provide SQL if known)//;
+
+  |DQ Backend App|
+  :Propose best-fit approach:\n  **A)** Map to nearest existing check\n  **B)** Generate custom DQ SQL\n  **C)** Submit as new check-type request;
+
+  |User|
+  :Review proposal \u2192 choose A / B / C;
+
+  if (A or B -- proceed?) then (Yes)
+    |DQ Backend App|
+    :Generate rule definition\nand expected behaviour;
+  else (C -- new type)
+    |Approval Gateway|
+    :Raise **New DQ Type** review\nData Governance + Tech Lead;
+    |User|
+    :Track request status\u00b7 await decision;
+    stop
+  endif
+
+else (Yes -- supported type)
+  |DQ Backend App|
+  :Generate rule draft for check type;
+endif
+
+'
+' -------------------------------------
+'  PHASE 3 . VALIDATE
+' -------------------------------------
+|DQ Backend App|
+#E65100:<color:#FFFFFF><b>  \u2462 VALIDATE  \u00b7  Automated Quality Gates  </b></color>;
+
+:\u26D4 **Security Guard**\n//SELECT-only \u00b7 block injection / DDL / DML//;
+:\u2714 **SQL Validator**\n//Syntax \u00b7 Schema \u00b7 Cost estimate \u00b7 Partition alignment//;
+:\u26A0 **Duplicate Detector**\n//Similarity vs active rules in anomaly_check_config//;
+
+|Genie Space|
+:Present validation results;
+
+|User|
+:Review rule definition + SQL preview;
+
+if (Edits needed?) then (Yes)
+  :Request edits or add constraints;
+  |DQ Backend App|
+  :Re-validate \u2192 return revised rule;
+  |User|
+else (No -- looks good)
+endif
+
+if (Duplicate found?) then (Yes)
+  |Genie Space|
+  :Show similar rule(s) with similarity %;
+  |User|
+  :Choose: reuse \u00b7 modify \u00b7 proceed anyway;
+  if (Cancelled?) then (Yes)
+    stop
+  endif
+else (No duplicate)
+endif
+
+|User|
+:Provide metadata:\n  Owner \u00b7 Frequency \u00b7 Priority (P1/P2/P3)\n  Thresholds \u00b7 Description \u00b7 Notifications;
+
+|DQ Backend App|
+:Calculate **Trend Score**\nfrom 30-day execution history for table/column;
+note right #FFF3E0: No history? \u2192 "Insufficient data"\nRule creation still permitted
+
+|Genie Space|
+:Display **Trend Score**:\n  PASS: {pass_pct}%  /  FAIL: {fail_pct}%\n  Confidence: {High / Medium / Low};
+note right #C8E6C9: Approver sees the same score\non the Approval Dashboard
+
+|User|
+:Review trend + impact \u2192 Confirm submission;
+
+|DQ Backend App|
+:INSERT \u2192 anomaly_check_config\nAudit LOG: CREATE \u2192 rule_audit_log;
+note right #FFF8E1: <font color="#F57F17"><b>STATUS = PROPOSED (DRAFT)</b></font>\nis_active = false
+
+'
+' -------------------------------------
+'  PHASE 4-5 . REVIEW + APPROVE
+' -------------------------------------
+|Approval Gateway|
+#6A1B9A:<color:#FFFFFF><b>  \u2463\u2464 REVIEW + APPROVE  \u00b7  Governance Gate  </b></color>;
+
+:Is submitter == table owner?;
+
+if (Self-approval?) then (Yes -- owner)
+  :Auto-approve\nSET is_active = true, auto_approved = true;
+  note right #C8E6C9: <font color="#1B5E20"><b>STATUS = APPROVED \u2192 ACTIVE</b></font>
+  |User|
+  :Rule **ACTIVE** immediately\nRule ID: {config_id}\nNext run: {next_scheduled_run};
+else (No -- peer review needed)
+  :Set status = PENDING_APPROVAL;
+  note right #FFF3E0: <font color="#1565C0"><b>STATUS = PENDING_APPROVAL</b></font>\nis_active = false (awaiting review)
+  :Notify PO + Tech Lead\nEmail + Jira ticket \u00b7 48 h SLA;
+
+  |User|
+  :Submitted -- monitor status in Genie Space;
+
+  |Approval Gateway|
+  :PO / Tech Lead reviews:\n  rule definition \u00b7 trend score \u00b7 blast radius;
+
+  if (Approved?) then (Yes)
+    :SET is_active = true\nLOG APPROVED in audit trail;
+    note right #C8E6C9: <font color="#1B5E20"><b>STATUS = APPROVED \u2192 ACTIVE</b></font>
+    |User|
+    :Rule **ACTIVE** -- email confirmed\nRule ID: {config_id};
+  else (Rejected)
+    :SET status = REJECTED\nCapture rejection reason;
+    note right #FFCDD2: <font color="#B71C1C"><b>STATUS = REJECTED</b></font>\nis_active = false
+    |User|
+    :Rule rejected \u00b7 feedback: {reason}\nRevise and resubmit;
+    stop
+  endif
+endif
+
+'
+' -------------------------------------
+'  PHASE 6 . DEPLOY
+' -------------------------------------
+|Platform (Automated)|
+#00695C:<color:#FFFFFF><b>  \u2465 DEPLOY  \u00b7  Schedule & Execute  </b></color>;
+
+:Add rule to **ANOMALY_DETECTION_JOB**\n//priority P1/P2/P3 \u00b7 DEPLOY_ENV routing//;
+note right #B2DFDB: <font color="#1B5E20"><b>STATUS = ACTIVE</b></font> (running on schedule)
+:Execute on schedule / event trigger\nResults written \u2192 check_execution_log;
+
+'
+' -------------------------------------
+'  PHASE 7 . MONITOR
+' -------------------------------------
+#B71C1C:<color:#FFFFFF><b>  \u2466 MONITOR  \u00b7  Detect \u00b7 Diagnose \u00b7 Alert  </b></color>;
+
+:Detect anomalies **(D1)**\nDiagnose drift + blast radius **(D2)**;
+:Violation detected:\n  Dispatch Email + Jira by priority\n  Log \u2192 DIGITAL_DATA_ANOMALIES;
+
+|User|
+:View rule health dashboard:\n  Pass rate \u00b7 Trend \u00b7 False-positive rate\n  DBU cost \u00b7 MTTD;
+
+'
+' -------------------------------------
+'  PHASE 8 . IMPROVE
+' -------------------------------------
+#0277BD:<color:#FFFFFF><b>  \u2467 IMPROVE  \u00b7  Tune \u00b7 Optimise \u00b7 Evolve  </b></color>;
+
+:Review noisy / low-value rules\nAdjust thresholds \u00b7 add exceptions\nPause or retire the rule;
+note right #BBDEFB
+  Status transitions:
+  ACTIVE \u2192 INACTIVE / DISABLED
+  INACTIVE \u2192 ACTIVE  (re-enable)
+  ACTIVE \u2192 DEPRECATED \u2192 ARCHIVED
+end note
+
+|Genie Space|
+:Surface tuning recommendations:\n//"Which rules are noisy or stale?"//;
+
+|DQ Backend App|
+:Apply tuning as version bump\n//version_id++ \u2192 re-enters VALIDATE//;
+note right #C8E6C9
+  Continuous Improvement Loop:
+  MONITOR insights \u2192 IMPROVE
+  IMPROVE re-enters VALIDATE
+  Coverage + signal quality compound over time.
+end note
+
+stop
+
+@enduml

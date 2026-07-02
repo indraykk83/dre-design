@@ -1,0 +1,254 @@
+@startuml 03_E2E_Architecture
+!theme plain
+title 3D Data Quality Framework -- End-to-End Architecture
+
+skinparam backgroundColor #F8F9FA
+skinparam linetype ortho
+skinparam rectangle {
+  RoundCorner 10
+  BorderColor #90A4AE
+  FontSize 11
+}
+skinparam database {
+  BackgroundColor #E3F2FD
+  BorderColor #1565C0
+}
+skinparam cloud {
+  BackgroundColor #FFF9C4
+  BorderColor #F9A825
+}
+skinparam arrow {
+  Color #546E7A
+  FontSize 9
+}
+
+top to bottom direction
+
+' =======================================================
+' ROW 1: Stakeholders | Rule Capture | Validation | Governance
+' =======================================================
+
+together {
+  rectangle "Stakeholders" as STK #FFF3E0 {
+    actor "Data\nEngineer"    as DE
+    actor "Business\nAnalyst" as BA
+    actor "Product\nOwner"    as PO
+    actor "Tech\nLead"        as TL
+    actor "Data\nGovernance"  as DG
+    actor "DataOps"           as DO
+  }
+
+  rectangle "Rule Capture & Self-Service  (Databricks)" as IL #E8F5E9 {
+    rectangle "DQ Agent\n(Genie Spaces / Streamlit)\n------------------------\n- NL rule proposal\n- SQL assist & tuning\n- Metadata capture\n- Trend score display\n- Human-in-loop approvals" as Agent #C8E6C9
+    rectangle "LLM Engine\n(Databricks Mosaic AI)\n------------------------\n- Intent parsing\n- SQL generation\n- SQL correctness tuning\n- Trend score prediction" as LLM #DCEDC8
+  }
+
+  rectangle "Rule Validation & Intelligence" as VL #FFF8E1 {
+    rectangle "Security Guard\n(SQL injection / DDL block\n/ SELECT-only enforce)" as SecGuard #FFECB3
+    rectangle "SQL Validator\n(Syntax / table-column\nexistence / cost tuning)" as SQLVal #FFECB3
+    rectangle "Duplicate Detector\n(Structural + semantic\nsimilarity check)" as DupDet #FFECB3
+    rectangle "Trend Scorer\n(Predicts pass/fail %\nbased on last 30 days data)" as TrendScorer #FFECB3
+    rectangle "RAG Context Retriever\n(query formulation + embed\n/ top-k chunk ranking)" as DocReader #FFECB3
+    rectangle "Check Suggestion Resolver\n(table_fqn validation + cache lookup\nby schema_version + fallback generation)" as SuggestResolver #FFECB3
+  }
+
+  rectangle "Governance & Approval" as GAL #FCE4EC {
+    rectangle "Approval Gateway\n(Owner -> auto-approve\nNon-owner -> PO/TL review)" as ApprGW #F8BBD0
+    rectangle "Audit Logger\n(Immutable log\nfor all actions)" as AuditLog #F8BBD0
+    rectangle "Version Manager\n(version_id tracking\nper config row)" as VerMgr #F8BBD0
+    rectangle "Notification Dispatcher\n(Priority router + dedup\n+ alert fatigue control)" as NotifDisp #F8BBD0
+  }
+}
+
+' =======================================================
+' ROW 2: Vector Search + Docs + Storage Layer
+' =======================================================
+
+together {
+  rectangle "Vector Search Index\n(Databricks VS / BGE-M3)\ncosine similarity search\nUC Volume file index" as VectorIdx #EDE7F6
+
+  database "Documentation Store\n(Unity Catalog Volume)\ndata_contracts/ . supported_checks/\nsql_patterns/ . examples/\ndomain_glossary/" as Docs #F3E5F5
+
+  rectangle "Storage Layer  (Unity Catalog -- Delta Tables)" as SL #E3F2FD {
+    database "anomaly_check_config\n(owner, priority, frequency\nthresholds, is_active, job_tag)" as RuleDB
+    database "check_suggestions_cache\n(table_fqn, schema_version,\nsuggestions_json, refreshed_at)" as SuggestDB
+    database "check_execution_log\n(PASS / FAIL / ERROR /\nSKIPPED / TIMEOUT)" as ExecLog
+    database "DIGITAL_DATA_ANOMALIES\n(anomaly events, severity\nz_score, context JSON)" as AnomDB
+    database "table_daily_metrics\n(baselines + trend data\nfor Trend Score queries)" as MetricsDB
+    database "invalid_custom_sql_log\n(custom SQL parse/runtime\nfailures)" as BadSqlDB
+    database "diagnosis_evidence_log\n(D2 evidence bundle:\njob log, history, runbook,\ncode, ITSM refs per anomaly)" as EvidenceDB
+  }
+}
+
+' =======================================================
+' ROW 3: DRE 3D Execution Framework
+' =======================================================
+
+rectangle "DRE 3D Execution Framework  (Databricks Workflows)" as DRE3D #E3F2FD {
+
+  rectangle "D1  DETECTION -- Observe  [KPI: DRRI]" as D1 #FFCDD2 {
+    rectangle "Profiler Agent\n----------------\nProfiles data trends\nbuilds dynamic baselines\nwithout human intervention" as D1A1 #FFF9C4
+    rectangle "Baseline Learner Agent\n----------------\nLearns historical patterns\nsets smart thresholds\n(volume, freshness, drift)" as D1A2 #FFF9C4
+    rectangle "ANOMALY_DETECTION_JOB\n----------------\nTrigger A: Scheduled cron\n  -> configs WHERE frequency\n    matches AND job_tag=this\nTrigger B: Upstream job end\n  -> configs WHERE job_id=this\nExecures only linked configs" as DetJob #C5CAE9
+    rectangle "Volume Anomalies\n(Z-score)\nDistribution Drift\n(% categorical shift)\nFreshness SLA\nNull Rate / Value Range\nBehavioural (rapid deletes)" as Checks #FFECB3
+  }
+
+  rectangle "D2  DIAGNOSIS -- Diagnose + Decide" as D2 #F8BBD0 {
+    rectangle "Drift Classifier Agent\n----------------\nMaps anomaly to Data Failure\nFingerprint taxonomy\n(Structural vs Statistical)" as D2A1 #FFF9C4
+    rectangle "Lineage Tracer Agent\n----------------\nCrawls Data Catalog graph\nFinds Patient Zero\nDeduplicates downstream noise" as D2A2 #FFF9C4
+    rectangle "Segment Slicer Agent\n----------------\nIsolates exact micro-segment\ne.g. Market=DE, OS=Android\nIn-situ slicing queries" as D2A3 #FFF9C4
+    rectangle "Evidence Retriever Agent\n----------------\nGathers diagnostic evidence:\nJob run logs . DESCRIBE HISTORY\nRunbooks (Confluence + UC Vol)\nGitHub code . ITSM prior tickets\n-> builds evidence_bundle" as D2A6 #FFF9C4
+    rectangle "Playbook Compiler Agent\n----------------\nMatches findings to SOP\nGrounded by evidence_bundle\nProfiles JSON execution recipe\nReproducible remediation plan" as D2A4 #FFF9C4
+    rectangle "Prescription Router Agent\n----------------\nValidates token parameters\nEvaluates domain targets\nHands over to D3" as D2A5 #FFF9C4
+  }
+
+  rectangle "D3  DEFLECTION -- Act + Assure" as D3 #CE93D8 {
+    rectangle "State Validator Agent\n----------------\nConfirms corruption still present\nPrevents redundant fixes\nRoutes resolved cases out" as D3A1 #FFF9C4
+    rectangle "Circuit Breaker Agent\n----------------\nHalts risky executions\nProtects production tables\nBounces back to D2 if metadata\nmissing" as D3A2 #FFF9C4
+    rectangle "Approval Gate Agent\n----------------\nHuman-in-loop gate\nFormats diagnostic summaries\nRoutes to PO/TL via Jira/Email\nfor click-to-approve clearance" as D3A3 #FFF9C4
+    rectangle "Domain Executor Agents\n----------------\nadiClub / CRM / Clickstream\nDTC Sales / Payments / Trading\nMetadata / NPS / SEO / Affiliates\nAuto-fix with human review loop" as D3A4 #FFF9C4
+  }
+
+  D1 -right-> D2 : anomaly handover
+  D2 -right-> D3 : prescription handover
+  D3 ..left.> D1 : feedback loop\n(learnings refine baselines)
+}
+
+' =======================================================
+' ROW 4: Notifications + Business Outcomes
+' =======================================================
+
+together {
+  cloud "Notification & Ticketing" as NotifSvc {
+    rectangle "Email\n(violations + approvals)" as Email
+    rectangle "Jira\n(auto-create P1/P2 tickets)" as Jira
+    rectangle "Databricks In-App\n(workspace alerts)" as DBNotif
+  }
+
+  cloud "D2 Diagnosis Evidence Sources  (read-only)" as EvSrc {
+    rectangle "Job Run Logs\n(Jobs API 2.1)" as EvJobLogs
+    rectangle "DESCRIBE HISTORY\n(Delta txn log)" as EvDeltaHist
+    rectangle "Runbooks\n(Confluence + UC Vol)" as EvRunbooks
+    rectangle "GitHub Repo\n(pipeline code)" as EvGit
+    rectangle "ITSM Tickets\n(prior incidents)" as EvITSM
+  }
+
+  rectangle "Business Outcomes" as MOL #E8F5E9 {
+    rectangle "Trusted Decisions\n[DRRI >95%]"         as MO1 #C8E6C9
+    rectangle "Faster Resolution\n[MTTD 48h -> 4-8h]"  as MO2 #C8E6C9
+    rectangle "Lower Risk\n[SLA 60% -> 80-88%]"        as MO3 #C8E6C9
+    rectangle "Reclaimed Capacity\n[40% toil reduction]" as MO4 #C8E6C9
+  }
+}
+
+' =======================================================
+' HIDDEN ARROWS -- enforce row order and horizontal sequencing
+' =======================================================
+
+STK       -[hidden]right-> IL
+IL        -[hidden]right-> VL
+VL        -[hidden]right-> GAL
+
+VL        -[hidden]down->  VectorIdx
+VectorIdx -[hidden]right-> Docs
+Docs      -[hidden]right-> SL
+
+SL        -[hidden]down->  DRE3D
+
+DRE3D     -[hidden]down->  NotifSvc
+NotifSvc  -[hidden]right-> MOL
+
+' =======================================================
+' FLOWS -- Rule Capture Process
+' =======================================================
+
+STK         -right-> Agent       : Natural language rule request
+Agent       -right-> LLM         : Parse intent / Generate SQL
+Agent       -down->  DocReader   : RAG retrieval\n(embed query + top-k search)
+Agent       -right-> SuggestResolver : table suggestion intent\n(out-of-context table via UC tool)
+SuggestResolver -down-> SuggestDB : cache lookup\nWHERE table_fqn + schema_version match
+SuggestResolver -right-> LLM : cache miss -> generate suggestions
+SuggestResolver -down-> SuggestDB : UPSERT refreshed suggestions
+DocReader   -down->  VectorIdx   : embed_and_search(query, top_k=8,\nfilter={table, doc_type})
+VectorIdx   -right-> Docs        : Fetch raw chunks\nfrom UC Volume index
+VectorIdx   -up->    DocReader   : Ranked context chunks\n(contract + template + examples)
+Agent       -right-> SecGuard    : Security check
+SecGuard    -right-> SQLVal      : Validated SQL
+SQLVal      -right-> DupDet      : Dedup check
+DupDet      -down->  RuleDB      : Query existing active configs
+DupDet      -right-> TrendScorer : Calculate trend score
+TrendScorer -down->  MetricsDB   : Query last 30 days history
+TrendScorer -right-> LLM         : Predict pass/fail probability
+Agent       -right-> ApprGW      : Submit rule
+ApprGW      -down->  RuleDB      : Store config (is_active=true)
+ApprGW      -right-> AuditLog    : Log action
+AuditLog    -down->  ExecLog     : Persist audit record
+ApprGW      -right-> NotifDisp   : Trigger approval notification
+NotifDisp   -down->  NotifSvc    : Email / Jira ticket
+
+' =======================================================
+' FLOWS -- DRE 3D Execution
+' =======================================================
+
+RuleDB    -down->  DetJob   : Read linked ACTIVE configs\n(by job_tag or frequency)
+MetricsDB -down->  DetJob   : Load baselines
+DetJob    -right-> Checks   : Execute DQ checks (read-only)
+DetJob    -down->  BadSqlDB : Log invalid custom SQL
+DetJob    -right-> AnomDB   : Persist anomaly events
+DetJob    -right-> ExecLog  : Log run outcomes\n(PASS/FAIL/ERROR/SKIP/TIMEOUT)
+AnomDB    -down->  D2       : Anomaly handover
+D2        -down->  EvSrc     : Gather evidence\n(logs/history/runbooks/code/ITSM)
+D2        -down->  EvidenceDB : Persist evidence_bundle
+D2        -right-> D3       : Prescription token
+D3        -right-> NotifDisp : Violations / approval requests
+ExecLog  ..>       MOL      : KPI feed (DRRI, MTTD, SLA)
+
+' =======================================================
+' SELF-EXPLANATORY LEGEND NOTE
+' =======================================================
+
+note as ArchLegend
+  <b>3D Data Quality Framework -- Architecture Guide</b>
+  -------------------------------------------------------
+  <b>WHAT IS BEING DONE</b>
+  The platform automates the full data quality lifecycle:
+  rule authoring (via NL copilot), anomaly detection,
+  multi-agent diagnosis, and automated deflection.
+  Every component on this diagram has one bounded responsibility.
+
+  <b>HOW IT IS ACHIEVED</b>
+  Rule Capture: Genie Space + Mosaic AI LLM, CRAG-gated RAG,
+    CAG pre-loaded catalogue, 6-stage validation pipeline.
+  Detection (D1): ANOMALY_DETECTION_JOB runs linked configs only.
+    Z-score + freshness + null-rate + volume + behavioral checks.
+  Diagnosis (D2): Drift Classifier -> Lineage Tracer -> Segment
+    Slicer -> Evidence Retriever (job logs / DESCRIBE HISTORY /
+    runbooks / GitHub / ITSM) -> Playbook Compiler.
+    Under 3 minutes per incident.
+  Deflection (D3): State Validator (loads evidence_bundle) ->
+    Circuit Breaker -> Approval Gate (evidence surfaced to owner)
+    -> Domain Executor (grounded by evidence). Automated for
+    all standard playbook types.
+
+  <b>WHAT WILL BE ACHIEVED</b>
+  - Any engineer/analyst authors a governed DQ rule in <5 min.
+  - Data incidents detected before business users notice.
+  - Root cause identified and contained automatically.
+  - Full audit trail in Unity Catalog for compliance.
+
+  <b>BUSINESS IMPACT</b>
+  MTTD: 48h manual -> 4h automated (12x improvement)
+  MTTR: 4-8h manual -> 44min automated (6-10x improvement)
+  Toil: 40% reduction in manual triage hours per sprint
+  SLA compliance: 60% baseline -> target 80-88%
+
+  <b>HOW IT IS MEASURED</b>
+  DRRI >95% per domain | tracked in check_execution_log
+  MTTD/MTTR per incident | tracked in DIGITAL_DATA_ANOMALIES
+  Rule coverage = active rules / gold tables | Unity Catalog
+  False-positive rate <5% | rule_health_monitoring dashboard
+  CRAG confidence avg >0.72 | check_suggestions_cache
+  Weekly Genie Space report auto-emailed to domain leads.
+end note
+
+@enduml

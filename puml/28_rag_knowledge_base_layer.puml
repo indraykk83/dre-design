@@ -1,0 +1,102 @@
+@startuml 28_rag_knowledge_base_layer
+!theme plain
+title Databricks-Native DQ Platform -- RAG Knowledge Base Layer
+
+skinparam rectangle {
+  BackgroundColor #E3F2FD
+  BorderColor #1565C0
+  RoundCorner 10
+}
+skinparam database {
+  BackgroundColor #E8F5E9
+  BorderColor #2E7D32
+}
+
+package "Unity Catalog -- Raw Knowledge" {
+  folder "UC Volumes" as UCVol {
+    component "data_contracts/"
+    component "supported_checks/"
+    component "sql_patterns/"
+    component "runbooks/"
+    component "playbooks/"
+    component "domain_glossary/"
+  }
+}
+
+package "Databricks Platform Telemetry" {
+  database "Job & Pipeline Logs" as JobLogs {
+    component "Job run logs"
+    component "Task stderr/stdout"
+    component "Workflow events"
+  }
+  
+  database "Delta & UC Metadata" as Metadata {
+    component "DESCRIBE HISTORY"
+    component "INFORMATION_SCHEMA"
+    component "Lineage API"
+  }
+}
+
+package "Delta Tables -- Chunked Corpus" {
+  database "doc_chunks" as DocChunks {
+    component "doc_id, doc_type"
+    component "domain, table_name"
+    component "chunk_text"
+    component "embedding_vector"
+  }
+  
+  database "log_chunks" as LogChunks {
+    component "pipeline_id, run_id"
+    component "error_type"
+    component "log_summary"
+    component "embedding_vector"
+  }
+  
+  database "incident_kb" as IncidentKB {
+    component "incident_id"
+    component "root_cause"
+    component "resolution"
+    component "fingerprint"
+  }
+}
+
+rectangle "Databricks AI Search" as AISearch {
+  component "Vector Index\n(Semantic Search)" as VectorIdx
+  component "Hybrid Search\n(Keyword + Vector)" as HybridSearch
+  component "Metadata Filters\n(domain, table, type)" as Filters
+}
+
+rectangle "Log Ingestion Workflow\n(Databricks Job)" as LogIngest {
+  component "Extract job errors"
+  component "Chunk & embed"
+  component "Write to log_chunks"
+  component "Daily refresh"
+}
+
+UCVol --> LogIngest : Weekly ingestion
+JobLogs --> LogIngest : Daily log extraction
+Metadata --> LogIngest : Schema history
+LogIngest --> DocChunks : Write chunks
+LogIngest --> LogChunks : Write error patterns
+DocChunks --> AISearch : Auto-sync index
+LogChunks --> AISearch : Auto-sync index
+IncidentKB --> AISearch : Auto-sync index
+
+note right of AISearch
+  <b>RAG Strategy:</b>
+  1. Raw docs in UC Volumes
+  2. Chunked in Delta tables
+  3. Indexed in AI Search
+  4. Logs treated as KB source
+  5. Incidents stored for learning
+end note
+
+note bottom of LogIngest
+  <b>Key Innovation:</b>
+  Databricks logs are not just
+  monitoring data — they are a
+  first-class knowledge source
+  for diagnosis.
+end note
+
+@enduml

@@ -1,0 +1,124 @@
+@startuml 10_Deployment
+!theme plain
+title Deployment Architecture -- 3D Data Quality Framework on Databricks
+
+skinparam node {
+  BackgroundColor #ECEFF1
+  BorderColor #90A4AE
+  FontSize 11
+}
+skinparam component {
+  BackgroundColor #E3F2FD
+  BorderColor #1565C0
+  FontSize 10
+}
+skinparam database {
+  BackgroundColor #E8F5E9
+  BorderColor #2E7D32
+  FontSize 10
+}
+skinparam cloud {
+  BackgroundColor #FFF9C4
+  BorderColor #F9A825
+}
+skinparam arrow {
+  Color #546E7A
+  FontSize 9
+}
+
+node "Databricks Workspace  (Azure / AWS / GCP)" as DBW {
+
+  node "Unity Catalog  (Governance + Storage)" as UC {
+
+    node "ds_tda_governance_lh / lhdev  (Delta Schema)" as DQSchema {
+      database "anomaly_check_config\n(rule master config table)" as T1
+      database "DIGITAL_DATA_ANOMALIES\n(anomaly events and severity)" as T2
+      database "check_execution_log\n(run-level execution audit)" as T3
+      database "table_daily_metrics\n(pre-aggregated baselines)" as T4
+      database "invalid_custom_sql_log\n(custom SQL parse/runtime errors)" as T5
+    }
+
+    node "Unity Catalog Volumes" as UCVol {
+      component "/Volumes/catalog/dq_framework/dq_documentation/\n+-- supported_checks.md\n+-- quality_gates.md\n+-- security_patterns.json\n+-- sql_patterns/\n|   +-- null_check.sql\n|   +-- outlier_zscore.sql\n|   +-- referential_integrity.sql\n+-- examples/" as Docs
+    }
+
+    node "Data Product Schemas  (source data)" as DPS {
+      database "catalog.gold.*\ncatalog.silver.*\ncatalog.bronze.*" as DataTables
+    }
+  }
+
+  node "Databricks Apps & Compute" as Apps {
+
+    component "DQ Agent App\n--------------------\nRuntime: Serverless / Shared Cluster\nAuth:    Databricks SSO\nUI:      Genie Spaces or Streamlit\nPort:    443 (HTTPS)\nScaling: Auto-scale 0->N" as AgentApp
+
+    component "LLM Model Serving Endpoint\n--------------------\nRuntime: Serverless Inference\nModel:   Mosaic AI / DBRX / BYOM\nLatency: <5s p95\nScaling: Auto-scale" as LLMEndpoint
+    component "Vector Search Endpoint\n--------------------\nRuntime: Databricks Vector Search\nEmbedding: BGE-M3 (Mosaic AI)\nIndex: UC Volume direct-access index\nAPI: embed_and_search(query, top_k, filter)\nLatency: <500ms p95" as VectorSearchEndpoint
+
+
+    component "Rule Validator Library\n--------------------\nRuntime: Python package\nDeployed as: Shared cluster library\nVersion-pinned via pyproject.toml" as ValidatorLib
+  }
+
+  node "Databricks Workflows" as WF {
+
+    component "ANOMALY_DETECTION_JOB\n--------------------\nSchedule:  daily + event trigger\nInput:     DEPLOY_ENV widget (dev/prod)\nCatalog:   prod=lakehouse | dev=lakehouse_dev\nSchema:    ds_tda_governance_lh | lhdev\nCluster:   Job cluster (auto-scaling)\nPriority:  1 (highest) -> 3 (lowest)" as DetectionJob
+
+    component "Rule Approval Notifier\n--------------------\nTrigger:  rule_status_change event\nRuntime:  Serverless\nAction:   Email + Jira dispatch\nSLA:      24h reminder, 48h escalate" as ApprovalJob
+
+    component "Rule Maintenance Job\n--------------------\nSchedule:  daily 04:00 UTC\nAction:    Archive stale rules (>90d)\n           Cleanup old logs (>7yr)\n           SLA reminder dispatch\nCluster:   Serverless" as MaintJob
+
+    component "Schema Change Detector\n--------------------\nTrigger:  Unity Catalog schema event\nAction:   Flag affected rules\n          Notify rule owners" as SchemaJob
+  }
+
+  node "MLflow Tracking" as MLflow {
+    component "LLM Quality Experiments\n--------------------\nTracks: SQL generation accuracy\n        Trend score calibration\n        User correction frequency" as MLTrack
+  }
+}
+
+node "CI/CD Orchestration" as CICDNode {
+  component "Jenkins Pipeline\n(pass DEPLOY_ENV notebook parameter)" as Jenkins
+}
+
+cloud "External Notification Services" as ExtSvc {
+  component "Email  (SMTP / SendGrid)" as Email
+  component "Jira  (REST API)\n[auto-ticket for P1/P2]" as Jira
+}
+
+node "User Endpoints" as UE {
+  component "Databricks Workspace UI\n(Browser -- HTTPS)" as BrowserUI
+  component "Databricks CLI / REST API\n(Programmatic access)" as DBCLI
+}
+
+' === CONNECTIONS ===
+BrowserUI   --> GenieApp     : HTTPS -- Databricks Auth / SSO
+DBCLI       --> BackendApp   : REST API
+
+GenieApp    --> LLMEndpoint  : NL intent classification
+GenieApp    --> DQSchema     : SELECT queries (read-only)
+GenieApp    --> BackendApp   : Invoke UC tool (WRITE actions)
+BackendApp  --> LLMEndpoint  : SQL generation + trend scoring
+BackendApp  --> DQSchema     : INSERT/UPDATE (service principal)
+BackendApp  --> VectorSearchEndpoint : embed_and_search(\nquery, top_k=8, filter={table, doc_type})
+VectorSearchEndpoint --> UCVol : fetch raw chunks from index
+BackendApp  --> ValidatorLib : Python function call
+ValidatorLib--> DQSchema     : Duplicate check SQL
+
+Jenkins      --> DetectionJob : Trigger with DEPLOY_ENV
+
+DetectionJob --> DQSchema    : Read active configs\nWrite audit + anomalies
+DetectionJob --> DataTables  : Execute DQ SQL (read-only)
+DetectionJob --> Email       : All violation alerts (P1/P2/P3)
+DetectionJob --> Jira        : P1/P2 auto-ticket
+
+ApprovalJob  --> DQSchema    : Update rule status
+ApprovalJob  --> Email       : Approval request / outcome
+ApprovalJob  --> Jira        : Approval ticket
+
+MaintJob     --> DQSchema    : Archive + cleanup
+MaintJob     --> Email       : SLA breach reminders
+
+SchemaJob    --> DQSchema    : Flag affected rules
+SchemaJob    --> Email       : Notify rule owners
+
+BackendApp   --> MLflow      : Track prompt + SQL quality
+
+@enduml
