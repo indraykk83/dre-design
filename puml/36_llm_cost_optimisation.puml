@@ -1,0 +1,134 @@
+@startuml 36_llm_cost_optimisation
+!theme plain
+skinparam defaultFontName Segoe UI
+skinparam backgroundColor #FAFAFA
+skinparam componentStyle rectangle
+skinparam ArrowColor #555555
+skinparam rectangleBorderColor #AAAAAA
+skinparam rectangleBackgroundColor #F8F8F8
+skinparam componentBorderColor #667eea
+skinparam noteBorderColor #cccccc
+
+title DRE 3D — LLM Cost Optimisation & Token Governance
+
+' ─────────────────────────────────────────────
+' COST GOVERNANCE LAYER
+' ─────────────────────────────────────────────
+package "Cost Governance Layer" as CGL #EEF2FF {
+
+    component "**Token Budget Manager**\n──────────────────\nPer-domain hard caps\nSoft-warn at 80%\nSession-level tracking" as TBM #DBEAFE
+
+    component "**Context Compaction Engine**\n──────────────────\nSummarise after N turns\nPrune stale tool calls\nSession snapshot to storage" as CCE #DBEAFE
+
+    component "**Response Cache**\n──────────────────\nhash(schema + rule_type\n  + check_type + dialect)\n→ cache hit bypasses LLM" as RC #DBEAFE
+
+    component "**Temperature Controller**\n──────────────────\nTask-type → temp map\nInjected into each\nagent invocation" as TC #DBEAFE
+}
+
+' ─────────────────────────────────────────────
+' AGENT TIERS WITH TEMPERATURE SETTINGS
+' ─────────────────────────────────────────────
+package "DRE 3D Agent Tiers  (temperature per task type)" as AGENTS #F0FDF4 {
+
+    component "**L1 Genie / Copilot**\ntemp=0.7  |  creative NL suggestions\ntop_p=0.9  |  varied phrasing" as L1 #BBF7D0
+    component "**L2 Rule Compiler**\ntemp=0.1  |  deterministic SQL\ntop_p=0.1  |  no hallucination" as L2 #BBF7D0
+    component "**L3 Diagnosis Agents**\ntemp=0.3  |  structured analysis\nDrift / Lineage / Segment / Playbook" as L3 #BBF7D0
+    component "**L4 Deflection Agents**\ntemp=0.1  |  precise execution\nCircuit Breaker / Domain Executor" as L4 #BBF7D0
+    component "**L5 Notification**\ntemp=0.5  |  natural language\nstakeholder alerts" as L5 #BBF7D0
+}
+
+' ─────────────────────────────────────────────
+' DATABRICKS PLATFORM COST CONTROLS
+' ─────────────────────────────────────────────
+package "Databricks Platform — Cost Controls" as DBX #FFF7ED {
+
+    component "**AI Gateway**\n──────────────────\nRate limits per team/domain\nHard cost caps ($)\nPII filtering\nRequest routing" as AIG #FED7AA
+
+    component "**Model Serving Endpoint**\n──────────────────\nAutoscale → 0 when idle\nPer-endpoint token limits\nDual model: DBRX (cheap)\n+ GPT-4o-mini (quality)" as MSE #FED7AA
+
+    component "**Inference Tables**\n──────────────────\nauto-logged per request:\n  - prompt_tokens\n  - completion_tokens\n  - latency_ms\n  - model_id" as IT #FED7AA
+
+    component "**MLflow Tracking**\n──────────────────\nLog temp / top_p per run\nToken cost per experiment\nA/B: compact vs full ctx" as MLF #FED7AA
+
+    component "**UC Volume**\n──────────────────\nPrompt response cache\n(cache_store/)\nSession snapshots\n(ctx_snapshots/)" as UCV #FED7AA
+
+    component "**Delta Table**\n──────────────────\nsession_context_log\n(compacted history)\ntoken_usage_daily\n(cost rollup)" as DT #FED7AA
+
+    component "**Lakehouse Monitoring**\n──────────────────\nToken cost dashboard\nAlert on >2x spike\nDomain cost breakdown\nWeekly budget report" as LM #FED7AA
+}
+
+' ─────────────────────────────────────────────
+' FLOW: budget enforcement
+' ─────────────────────────────────────────────
+TBM -down-> AIG : enforce hard cap\nper domain
+TC -right-> L1 : inject temp=0.7
+TC -right-> L2 : inject temp=0.1
+TC -right-> L3 : inject temp=0.3
+TC -right-> L4 : inject temp=0.1
+TC -right-> L5 : inject temp=0.5
+
+L1 -down-> RC : check cache first
+L2 -down-> RC : check cache first
+RC -down-> AIG : cache miss →\nforward to LLM
+L3 -down-> AIG : direct (no cache)
+L4 -down-> AIG : direct (no cache)
+L5 -down-> AIG : direct (no cache)
+
+AIG -right-> MSE : route request
+MSE -down-> IT : auto-log usage
+
+CCE -down-> UCV : write ctx snapshot
+CCE -down-> DT : persist compacted session
+RC -left-> UCV : read/write cache
+
+IT -down-> MLF : aggregate per run
+IT -down-> LM : stream for monitoring
+LM -up-> TBM : cost spike →\ntighten budget
+TBM -down-> MLF : read cost metrics
+
+' ─────────────────────────────────────────────
+' COMPACTION TRIGGER ANNOTATION
+' ─────────────────────────────────────────────
+note top of CCE
+  **When to compact:**
+  • After 10 dialogue turns  OR
+  • context_tokens > 8,000  OR
+  • session idle > 30 min
+
+  **How:**
+  1. Call summarisation prompt on history
+  2. Replace raw turns with summary
+  3. Snapshot full history to UC Volume
+  4. Continue with compacted context
+end note
+
+note right of MSE
+  **Model routing strategy:**
+  • Rule authoring SQL → DBRX Instruct
+    (low cost, high SQL accuracy)
+  • D2 root-cause narrative → GPT-4o-mini
+    (nuanced explanation)
+  • D3 playbook execution → DBRX Instruct
+    (deterministic, fast)
+end note
+
+legend
+  **36. LLM Cost Optimisation & Token Governance**
+  |= Dimension |= Mechanism |= Databricks Component |= Target |
+  | **Token Budget** | Per-domain hard cap via AI Gateway quotas | AI Gateway | <$0.02 per rule session |
+  | **Context Compaction** | Summarise + prune after 10 turns / 8K tokens | UC Volume + Delta | 60% ctx reduction |
+  | **Temperature Control** | Task-type map: SQL=0.1, Diag=0.3, NL=0.5–0.7 | Model Serving params | Zero SQL hallucinations |
+  | **Response Caching** | hash(schema+rule_type+check_type) → skip LLM | UC Volume cache_store/ | >30% cache hit rate |
+  | **Scale to Zero** | Model Serving autoscales to 0 when idle | Model Serving Endpoint | $0 idle cost |
+  | **Cost Visibility** | Inference Tables → Lakehouse Monitoring | Lakehouse Monitoring | Alert within 5 min on spike |
+  --
+  **WHAT**: End-to-end LLM cost governance layer for all DRE 3D agent invocations on Databricks.
+  **HOW**: Four controls — budget caps (AI Gateway), context compaction (UC Volume snapshots),
+           temperature mapping per agent tier, response caching for deterministic SQL hits.
+  **ACHIEVED**: Predictable, bounded LLM spend per domain; no runaway token usage;
+               deterministic SQL generation at minimum model cost.
+  **MEASURED**: Cost per rule authoring session <$0.02 | cache hit rate >30% |
+               context compaction ratio >60% | zero idle model serving cost.
+endlegend
+
+@enduml

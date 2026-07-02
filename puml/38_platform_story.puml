@@ -1,0 +1,98 @@
+@startuml 38_platform_story
+!theme plain
+skinparam defaultFontName Segoe UI
+skinparam backgroundColor #FFFFFF
+skinparam componentStyle rectangle
+skinparam rectangleBorderThickness 2
+skinparam ArrowColor #455A64
+skinparam ArrowThickness 2
+skinparam noteBorderColor #CCCCCC
+skinparam defaultTextAlignment center
+
+title <size:22><b>DRE 3D — Why, What &amp; Where on Databricks SaaS</b></size>\n<size:13>A self-driving data reliability engine that detects anomalies, diagnoses root causes and deflects failures</size>
+
+' ══════════════════════════════════════════════════════════════
+' ROW 0 — WHY
+' ══════════════════════════════════════════════════════════════
+rectangle "❓  WHY  —  The Problem" as WHY #FFE0E0 {
+  rectangle " 🕐  Late Detection\nAnomalies found\ndays after the fact\n(avg. 18 hrs MTTD) " as P1 #FFCDD2
+  rectangle " 🔍  Manual Debugging\nEngineers spend 40 %\nof on-call time on\nroot-cause triaging " as P2 #FFCDD2
+  rectangle " 🔁  Repeat Incidents\nSame data quality\nbreaks recur without\nstructured deflection " as P3 #FFCDD2
+  rectangle " 💸  Trust Erosion\nDownstream reports,\nML models and KPIs\ntainted silently " as P4 #FFCDD2
+}
+
+' ══════════════════════════════════════════════════════════════
+' ROW 1 — WHAT: three D layers
+' ══════════════════════════════════════════════════════════════
+
+rectangle "⚡  D1 — DETECT" as D1BOX #E3F2FD {
+  rectangle "DQ Rules Authored\nby DQ Chatbot App\n(LangGraph + CRAG-RAG)" as D1RULES #BBDEFB
+  rectangle "Anomaly Detection Engine\n(5 dimensions)\nNull | Outlier | Freshness\nVolume | Schema" as D1ENGINE #BBDEFB
+  rectangle "SLA &amp; Pipeline\nFailure Monitors\n(event-triggered)" as D1MON #BBDEFB
+  rectangle "⎯⎯⎯⎯⎯⎯  Databricks SaaS  ⎯⎯⎯⎯⎯⎯\n📦 Workflows (scheduled jobs)\n📊 Delta Lake (anomaly_check_config)\n🔔 Lakehouse Monitoring (baseline EWMA)\n🌐 Databricks Apps (Chatbot UI)" as D1DBX #90CAF9
+}
+
+rectangle "🔬  D2 — DIAGNOSE" as D2BOX #E8F5E9 {
+  rectangle "Drift Classifier\n(statistical tests\nKS / IQR / Z-score)" as D2DRIFT #C8E6C9
+  rectangle "Lineage Tracer\n(upstream DAG scan\njob log analysis)" as D2LIN #C8E6C9
+  rectangle "Segment Slicer\n+ Evidence Retriever\n+ Playbook Compiler" as D2PLAY #C8E6C9
+  rectangle "⎯⎯⎯⎯⎯⎯  Databricks SaaS  ⎯⎯⎯⎯⎯⎯\n📦 Workflows (on-demand diagnosis jobs)\n📊 Delta Lake (check_execution_log)\n🤖 Model Serving Endpoint (LLM reasoning)\n📚 Vector Search (runbook retrieval)" as D2DBX #A5D6A7
+}
+
+rectangle "🛡️  D3 — DEFLECT" as D3BOX #FFF3E0 {
+  rectangle "State Validator\n+ Circuit Breaker\n(prevent cascades)" as D3CB #FFE0B2
+  rectangle "Approval Gate\n(auto vs manual\nby severity)" as D3APPR #FFE0B2
+  rectangle "Domain Expert Agents\n(12 domains: adiClub\nCRM, Payments, Trading…)" as D3DOM #FFE0B2
+  rectangle "⎯⎯⎯⎯⎯⎯  Databricks SaaS  ⎯⎯⎯⎯⎯⎯\n📦 Workflows (deflection job triggers)\n📊 Delta Lake (deflection audit log)\n🤖 Model Serving Endpoint (playbook exec)\n📬 Jobs API (pipeline control)" as D3DBX #FFCC80
+}
+
+' ══════════════════════════════════════════════════════════════
+' ROW 2 — SHARED PLATFORM
+' ══════════════════════════════════════════════════════════════
+rectangle "🏛️  DATABRICKS SAAS PLATFORM  —  Shared by all three layers" as PLATFORM #EDE7F6 {
+  rectangle "🗂️ Unity Catalog\n— Single governance\n— Row/column security\n— Lineage tracking\n— All tables registered" as UC #D1C4E9
+  rectangle "🔺 Delta Lake\n— All state in Delta\n— ACID transactions\n— Time-travel audit\n— Zero-copy clones" as DL #D1C4E9
+  rectangle "🤖 Model Serving\n— Self-hosted LLM\n  (DBRX / BYOM)\n— Autoscale → 0\n— <5s p95 latency" as MS #D1C4E9
+  rectangle "🔍 AI Search\n— Vector Search\n— BGE-M3 embeddings\n— RAG knowledge base\n— UC Volume docs" as VS #D1C4E9
+  rectangle "🛡️ AI Gateway\n— Token budgets\n— Rate limits / team\n— PII filtering\n— Cost caps ($)" as GW #D1C4E9
+  rectangle "📱 Databricks Apps\n— DQ Chatbot UI\n— Serverless hosting\n— SSO / OAuth\n— LangGraph runtime" as APPS #D1C4E9
+  rectangle "📊 Lakehouse Monitor\n— EWMA baselines\n— Cost dashboards\n— Alert on anomaly\n— Weekly reports" as LM #D1C4E9
+}
+
+' ══════════════════════════════════════════════════════════════
+' ROW 3 — OUTCOMES
+' ══════════════════════════════════════════════════════════════
+rectangle "✅  OUTCOMES  —  What you get" as OUTCOMES #E8F5E9 {
+  rectangle "⏱️ MTTD < 30 min\nDown from 18 hrs\n(60× faster detection)" as O1 #C8E6C9
+  rectangle "🔍 Zero manual triage\nD2 root-cause ready\nbefore on-call wakes" as O2 #C8E6C9
+  rectangle "🛡️ Self-healing\nD3 deflects 70 %\nof known failure modes" as O3 #C8E6C9
+  rectangle "📈 DRRI Score\nQuantified data\nreliability index\nper domain" as O4 #C8E6C9
+  rectangle "💰 Cost savings\n<$0.02 per rule session\nNo extra infra needed" as O5 #C8E6C9
+}
+
+' ══════════════════════════════════════════════════════════════
+' FLOW ARROWS
+' ══════════════════════════════════════════════════════════════
+WHY -[#E53935,thickness=3]down-> D1BOX : <b>triggers need for</b>
+D1BOX -[#1565C0,thickness=3]right-> D2BOX : <b>anomaly event →</b>
+D2BOX -[#2E7D32,thickness=3]right-> D3BOX : <b>diagnosis bundle →</b>
+D3BOX -[#F57F17,thickness=3]down-> OUTCOMES : <b>deflection + learning →</b>
+
+D1BOX -[#7E57C2,dashed]down-> PLATFORM
+D2BOX -[#7E57C2,dashed]down-> PLATFORM
+D3BOX -[#7E57C2,dashed]down-> PLATFORM
+
+legend
+  |= Colour |= Meaning |
+  |<#FFCDD2> | Problem / WHY |
+  |<#BBDEFB> | D1 Detect — Databricks Workflows + Delta |
+  |<#C8E6C9> | D2 Diagnose — Workflows + Model Serving |
+  |<#FFE0B2> | D3 Deflect — Workflows + Jobs API |
+  |<#D1C4E9> | Shared Databricks SaaS Platform |
+  --
+  All compute is <b>serverless or auto-scaled to 0 when idle</b>.
+  All state is in <b>Delta Lake under Unity Catalog governance</b>.
+  All LLM calls route through <b>AI Gateway for cost control</b>.
+endlegend
+
+@enduml

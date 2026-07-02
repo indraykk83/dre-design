@@ -49,10 +49,10 @@ node "Databricks Workspace  (Azure / AWS / GCP)" as DBW {
 
   node "Databricks Apps & Compute" as Apps {
 
-    component "DQ Agent App\n--------------------\nRuntime: Serverless / Shared Cluster\nAuth:    Databricks SSO\nUI:      Genie Spaces or Streamlit\nPort:    443 (HTTPS)\nScaling: Auto-scale 0->N" as AgentApp
+    component "DQ Chatbot App\n--------------------\nRuntime: Databricks Apps (Serverless)\nAuth:    Databricks SSO\nUI:      Streamlit / Gradio\nOrchestration: LangGraph\nPort:    443 (HTTPS)\nScaling: Auto-scale 0->N" as AgentApp
 
-    component "LLM Model Serving Endpoint\n--------------------\nRuntime: Serverless Inference\nModel:   Mosaic AI / DBRX / BYOM\nLatency: <5s p95\nScaling: Auto-scale" as LLMEndpoint
-    component "Vector Search Endpoint\n--------------------\nRuntime: Databricks Vector Search\nEmbedding: BGE-M3 (Mosaic AI)\nIndex: UC Volume direct-access index\nAPI: embed_and_search(query, top_k, filter)\nLatency: <500ms p95" as VectorSearchEndpoint
+    component "LLM Model Serving Endpoint\n--------------------\nRuntime: Serverless Inference\nModel:   DBRX / BYOM (self-hosted)\nLatency: <5s p95\nScaling: Auto-scale" as LLMEndpoint
+    component "Vector Search Endpoint\n--------------------\nRuntime: Databricks Vector Search\nEmbedding: BGE-M3\nIndex: UC Volume direct-access index\nAPI: embed_and_search(query, top_k, filter)\nLatency: <500ms p95" as VectorSearchEndpoint
 
 
     component "Rule Validator Library\n--------------------\nRuntime: Python package\nDeployed as: Shared cluster library\nVersion-pinned via pyproject.toml" as ValidatorLib

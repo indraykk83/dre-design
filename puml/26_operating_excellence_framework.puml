@@ -1,0 +1,98 @@
+@startuml
+!theme plain
+skinparam defaultFontName Segoe UI
+skinparam shadowing false
+skinparam dpi 180
+skinparam rectangle {
+  RoundCorner 12
+}
+
+title DRE 3D Operating Excellence Framework
+caption Reliability + Observability + Model Benchmarking + FinOps + Adoption + Governance
+
+rectangle "Business Outcomes\nDRRI, MTTD, MTTR, Trust" as OUT #E8F4FD
+
+rectangle "1) Reliability and SLO Control" as R1 #D5E8D4 {
+  rectangle "Service SLO Catalog\n- diagnosis_latency_slo\n- deflection_success_rate\n- rule_authoring_success_rate" as R1A #FFFFFF
+  rectangle "Error Budget Engine\n- burn rate\n- release gates\n- escalation" as R1B #FFFFFF
+}
+
+rectangle "2) Observability and Tracing" as R2 #DAE8FC {
+  rectangle "Golden Signals\nlatency, traffic, errors, saturation" as R2A #FFFFFF
+  rectangle "End-to-End Trace Spine\nrequest_id -> tool_id -> sql_id" as R2B #FFFFFF
+  rectangle "Data Observability\nfreshness, schema drift, lineage breaks" as R2C #FFFFFF
+}
+
+rectangle "3) Model Performance and Benchmarking" as R3 #F8CECC {
+  rectangle "Offline Benchmark Suite\ngolden prompts, golden SQL, regression checks" as R3A #FFFFFF
+  rectangle "Online Evaluation\nacceptance rate, override rate, groundedness" as R3B #FFFFFF
+  rectangle "Safety Metrics\nblocked_sql_rate, risky_sql_ack_rate" as R3C #FFFFFF
+}
+
+rectangle "4) FinOps and Cost Intelligence" as R4 #FFF2CC {
+  rectangle "Unit Economics\ncost per suggestion, cost per saved rule" as R4A #FFFFFF
+  rectangle "Cost Pattern Analytics\nby domain, model, prompt type, hour" as R4B #FFFFFF
+  rectangle "Budget and Guardrails\nsoft cap, hard cap, policy fallback" as R4C #FFFFFF
+}
+
+rectangle "5) Adoption and Product Analytics" as R5 #E1D5E7 {
+  rectangle "Usage Funnel\nopen -> suggest -> select -> confirm -> save" as R5A #FFFFFF
+  rectangle "Trust Indicators\nacceptance, rejection reason, edit ratio" as R5B #FFFFFF
+  rectangle "Domain Rollout Health\nactive domains, WAU by role" as R5C #FFFFFF
+}
+
+rectangle "6) Governance and Risk Controls" as R6 #FCE5CD {
+  rectangle "Policy as Code\nSQL safety policy, approval routing" as R6A #FFFFFF
+  rectangle "Audit and Evidence Pack\nwho approved, why blocked, what changed" as R6B #FFFFFF
+  rectangle "Exception Lifecycle\nowner, expiry, remediation due date" as R6C #FFFFFF
+}
+
+rectangle "7) Action and Improvement Loop" as R7 #D9EAD3 {
+  rectangle "Control Tower\nKPI scorecards + alerts + weekly review" as R7A #FFFFFF
+  rectangle "Improvement Backlog\nprompt tuning, model routing, runbook updates" as R7B #FFFFFF
+  rectangle "Release Fitness Gates\nblock release on KPI regressions" as R7C #FFFFFF
+}
+
+R1 --> R2
+R2 --> R3
+R3 --> R4
+R4 --> R5
+R5 --> R6
+R6 --> R7
+R7 --> OUT
+
+R2B --> R1B : SLO burn attribution
+R3B --> R4B : quality vs cost trend
+R5B --> R3A : benchmark refresh
+R6A --> R3C : SQL safety categories
+R7A --> R1A : target recalibration
+
+legend right
+WHAT
+- A measurable operating architecture for DRE 3D, not only component topology.
+
+WHY
+- Architecture quality must be proven by SLOs, model quality, cost efficiency,
+  and user adoption - continuously, not as one-time design output.
+
+HOW TO SOLVE
+- Add explicit control planes for reliability, observability, model benchmarking,
+  FinOps, adoption analytics, and governance.
+- Tie all planes into one control tower with release fitness gates.
+
+SOLVES
+- Unclear diagnosis latency accountability
+- Unknown model regression impact
+- Rising cost without value signal
+- Low adoption without root-cause visibility
+- Weak auditability for safety decisions
+
+MEASURED BY
+- Diagnosis latency p95, deflection success rate, DRRI trend
+- SQL validity and groundedness rates
+- Cost per saved rule and budget variance
+- Funnel conversion and weekly active users
+- Policy violation rate and exception closure SLA
+endlegend
+
+@enduml

@@ -1,5 +1,5 @@
 @startuml 06_C4_Component
-title 3D Data Quality Framework - Component Diagram\nGenie Space (Read) + DQ Backend App (Write)
+title 3D Data Quality Framework - Component Diagram\nDQ Chatbot App (LangGraph) + DQ Backend App (Write)
 
 skinparam backgroundColor #FAFAFA
 skinparam defaultFontName Segoe UI
@@ -21,7 +21,7 @@ left to right direction
 
 actor User as "User\n(Data Engineer / BA / PO / TL)"
 
-rectangle LLMEngine as "LLM Engine\n(Mosaic AI)\nNLP, SQL generation, trend scoring"
+rectangle LLMEngine as "LLM Engine\n(Model Serving Endpoint)\nNLP, SQL generation, trend scoring"
 database RuleStore as "Rule Store\n(Delta Lake)\nanomal_check_config"
 database SuggestCache as "Suggestion Cache\n(check_suggestions_cache)\ntable_fqn + schema_version\nsuggestions_json"
 database DocStore as "Documentation Store\n(UC Volumes)\ndata_contracts/ . supported_checks/\nsql_patterns/ . examples/ . domain_glossary/"
@@ -31,23 +31,23 @@ rectangle ApprovalSvc as "Approval Gateway\n(Python service)\nowner/non-owner ro
 rectangle ValidatorSvc as "Rule Validator Service\n(Python)\nsecurity + SQL validation"
 
 note as NoteGenie
-  Genie Space:
-  READ-only access only to configured Genie data sources.
+  DQ Chatbot App:
+  LangGraph orchestrates tool calls for read + write operations.
   Executes SELECT via Unity Catalog.
 
   For table-suggestion queries on tables
-  outside Genie context, route to backend
+  LangGraph routes all write/suggest intents to DQ Backend
   via UC Function Tool.
 
   For WRITE intent: LLM selects a registered
   UC Function Tool (dq_backend.create_rule).
-  Genie runtime invokes the UC function
+  LangGraph dispatches tool calls directly
   which HTTP-calls the DQ Backend App
   (Databricks App / service principal).
   User sees only the NL response.
 end note
 
-package "Genie Space  (Mosaic AI Agent Chat)" #E3F2FD {
+package "DQ Chatbot App  (Databricks Apps + LangGraph)" #E3F2FD {
   rectangle ChatIface as "Chat Interface\nUI rendering, NL answers,\nSQL diff, status display"
   rectangle SessionMgr as "Session Manager\ncontext per user / session"
   rectangle IntentRouter as "Intent Router\n[LLM classifies READ / WRITE / AMBIGUOUS]\nREAD  -> Rule Browser (SELECT on Delta)\nWRITE -> invoke UC Function Tool\n        -> DQ Backend App (HTTP POST)"

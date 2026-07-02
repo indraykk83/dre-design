@@ -51,7 +51,7 @@ package "Databricks App Backend (Orchestration)" {
   }
 }
 
-rectangle "Mosaic AI Model Serving" as AI {
+rectangle "Model Serving Endpoint" as AI {
   component "LLM Endpoint\n(Intent/SQL/Reasoning)" as LLM
   component "Embedding Endpoint\n(BGE-M3)" as Embed
 }

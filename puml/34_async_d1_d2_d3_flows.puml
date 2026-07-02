@@ -53,7 +53,7 @@ box "External Systems" #FFF9C4
 end box
 
 box "AI & RAG" #FFF8E1
-  participant "Mosaic AI\nLLM" as LLM
+  participant "Model Serving\nLLM" as LLM
   participant "AI Search\nVector Index" as VS
 end box
 
@@ -317,7 +317,7 @@ legend right
   <b>Technologies:</b>
   - Databricks Workflows (Execution)
   - Unity Catalog (State storage)
-  - Mosaic AI (Reasoning)
+  - Model Serving Endpoint (Reasoning)
   - AI Search (RAG)
   - External APIs (Evidence + Actions)
   

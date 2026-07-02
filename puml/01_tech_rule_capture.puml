@@ -1,6 +1,6 @@
 @startuml 01_Technical_Rule_Capture
 !theme plain
-title DQ Rule Capture -- CAG + CRAG-Gated RAG + Security + Approval\nGenie Space | DQ Backend App | Mosaic AI | Unity Catalog
+title DQ Rule Capture -- CAG + CRAG-Gated RAG + Security + Approval\nDQ Chatbot App (LangGraph) | DQ Backend App | Model Serving Endpoint | Unity Catalog
 
 skinparam backgroundColor #F8F9FA
 skinparam defaultFontSize 10
@@ -13,8 +13,8 @@ skinparam sequence {
 }
 
 actor "User\n(Data Engineer /\nBusiness Analyst)" as USR
-participant "Genie Space\n[Chat UI]" as GENIE
-participant "LLM Engine\n[Mosaic AI]" as LLM
+participant "DQ Chatbot App\n[Databricks Apps + LangGraph]" as GENIE
+participant "LLM Engine\n[Model Serving Endpoint]" as LLM
 participant "DQ Backend App\n[Python / REST]" as BACKEND
 participant "CAG Pre-Loader\n[static docs]" as CAG #DCEDC8
 participant "CRAG Evaluator\n[confidence gate]" as CRAGEVAL #FFCDD2

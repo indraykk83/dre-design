@@ -1,0 +1,612 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DRE 3D Architecture - Complete Story</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background: #f5f7fa;
+        }
+
+        header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 3rem 2rem;
+            text-align: center;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        header h1 {
+            font-size: 3rem;
+            margin-bottom: 0.5rem;
+        }
+
+        header .tagline {
+            font-size: 1.4rem;
+            opacity: 0.95;
+            margin-bottom: 1rem;
+        }
+
+        header .description {
+            font-size: 1rem;
+            opacity: 0.85;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        nav {
+            background: white;
+            padding: 1rem 2rem;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        nav ul {
+            list-style: none;
+            display: flex;
+            gap: 2rem;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        nav a {
+            color: #667eea;
+            text-decoration: none;
+            font-weight: 500;
+            transition: color 0.3s;
+        }
+
+        nav a:hover {
+            color: #764ba2;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        .intro-section {
+            background: white;
+            padding: 2.5rem;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            margin-bottom: 3rem;
+        }
+
+        .intro-section h2 {
+            font-size: 2rem;
+            color: #667eea;
+            margin-bottom: 1rem;
+        }
+
+        .intro-section p {
+            font-size: 1.1rem;
+            margin-bottom: 1rem;
+            color: #555;
+        }
+
+        .intro-section ul {
+            margin-left: 2rem;
+            margin-bottom: 1rem;
+        }
+
+        .intro-section li {
+            margin-bottom: 0.5rem;
+            color: #555;
+        }
+
+        .section {
+            margin-bottom: 4rem;
+        }
+
+        .section-intro {
+            background: white;
+            padding: 1.5rem;
+            border-left: 4px solid #667eea;
+            margin-bottom: 2rem;
+            border-radius: 4px;
+        }
+
+        .section-intro p {
+            color: #555;
+            font-size: 1.05rem;
+        }
+
+        .section h2 {
+            font-size: 2rem;
+            color: #667eea;
+            margin-bottom: 1.5rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 3px solid #667eea;
+        }
+
+        .diagram-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(500px, 1fr));
+            gap: 2rem;
+        }
+
+        .diagram-card {
+            background: white;
+            border-radius: 8px;
+            padding: 1.5rem;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            transition: transform 0.3s, box-shadow 0.3s;
+        }
+
+        .diagram-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 5px 20px rgba(0, 0, 0, 0.15);
+        }
+
+        .diagram-card h3 {
+            font-size: 1.2rem;
+            color: #333;
+            margin-bottom: 0.5rem;
+        }
+
+        .diagram-card p {
+            color: #666;
+            font-size: 0.9rem;
+            margin-bottom: 1rem;
+        }
+
+        .diagram-card img {
+            width: 100%;
+            border: 1px solid #e0e0e0;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: opacity 0.3s;
+        }
+
+        .diagram-card img:hover {
+            opacity: 0.9;
+        }
+
+        .diagram-links {
+            margin-top: 1rem;
+            display: flex;
+            gap: 1rem;
+        }
+
+        .diagram-links a {
+            padding: 0.5rem 1rem;
+            background: #667eea;
+            color: white;
+            text-decoration: none;
+            border-radius: 4px;
+            font-size: 0.85rem;
+            transition: background 0.3s;
+        }
+
+        .diagram-links a:hover {
+            background: #764ba2;
+        }
+
+        .highlight-box {
+            background: #f0f4ff;
+            border-left: 4px solid #667eea;
+            padding: 1rem;
+            margin: 1rem 0;
+            border-radius: 4px;
+        }
+
+        .highlight-box strong {
+            color: #667eea;
+        }
+
+        footer {
+            background: #333;
+            color: white;
+            text-align: center;
+            padding: 2rem;
+            margin-top: 3rem;
+        }
+    </style>
+</head>
+
+<body>
+    <header>
+        <h1>🚀 DRE 3D Data Quality Framework</h1>
+        <p class="tagline">Self-Service Data Reliability with AI-Powered Detection, Diagnosis & Deflection</p>
+        <p class="description">
+            Capture data quality rules via conversational chatbot (no coding!). AI agents automatically detect anomalies,
+            diagnose root causes, and deflect problems before they impact business.
+        </p>
+    </header>
+
+    <nav>
+        <ul>
+            <li><a href="#problem">The Problem</a></li>
+            <li><a href="#solution">Our Solution</a></li>
+            <li><a href="#architecture">Architecture</a></li>
+            <li><a href="#layers">How It Works</a></li>
+            <li><a href="#flows">User Journeys</a></li>
+            <li><a href="#validation">Safety & Governance</a></li>
+            <li><a href="#specialized">Deep Dives</a></li>
+        </ul>
+    </nav>
+
+    <div class="container">
+        <!-- THE PROBLEM -->
+        <section id="problem" class="intro-section">
+            <h2>🎯 The Problem We're Solving</h2>
+            <p>
+                Data teams spend <strong>40-60% of their time</strong> fighting fires: investigating pipeline failures,
+                tracking down data quality issues, and manually writing validation rules. This reactive approach leads
+                to:
+            </p>
+            <ul>
+                <li><strong>Delayed detection</strong>: Issues are found downstream, after business impact</li>
+                <li><strong>Manual diagnosis</strong>: Engineers spend hours digging through logs and metrics</li>
+                <li><strong>Repetitive work</strong>: Writing similar validation rules over and over</li>
+                <li><strong>Inconsistent quality</strong>: Each team has different standards and tools</li>
+            </ul>
+        </section>
+
+        <!-- THE SOLUTION -->
+        <section id="solution" class="intro-section">
+            <h2>💡 Our Solution: The 3D Framework</h2>
+            <p>
+                DRE 3D is a <strong>self-driving data reliability engine</strong> that combines AI agents with
+                Databricks platform to automate the entire data quality lifecycle:
+            </p>
+
+            <div class="highlight-box">
+                <strong>🤖 Self-Service Rule Portal</strong>: Capture data quality rules via chatbot in plain English - no coding required!<br>
+                <em style="font-size: 0.95rem;">Example: "Alert me if customer_id is null in orders table" → System generates SQL + validation logic</em>
+            </div>
+
+            <div class="highlight-box">
+                <strong>D1 - Detect</strong>: Runs user-defined rules on schedule to monitor pipelines and detect anomalies in real-time
+            </div>
+
+            <div class="highlight-box">
+                <strong>D2 - Diagnose</strong>: When anomalies are found, AI investigates root causes by correlating logs, metrics, and deployments
+            </div>
+
+            <div class="highlight-box">
+                <strong>D3 - Deflect</strong>: Generates fixes, creates tickets, and can auto-remediate with approval
+            </div>
+
+            <p style="margin-top: 1.5rem;">
+                <strong>Key Innovation:</strong> The <strong>self-service portal</strong> democratizes data quality.
+                Business analysts and data engineers can define rules through a <strong>conversational chatbot interface</strong>
+                without writing code. The system validates rules through 10 layers (security, governance, duplicate detection, SQL validation)
+                before deploying them to production where <strong>D1 Detection Agent</strong> executes them continuously.
+            </p>
+
+            <p style="margin-top: 1rem; color: #555;">
+                <strong>The Complete Flow:</strong> User defines rule via chatbot → LLM translates to SQL → Multi-stage validation →
+                Approval → Deployed to D1 → D1 runs rule on schedule → Detects anomaly → D2 diagnoses → D3 fixes.
+            </p>
+        </section>
+
+        <!-- ARCHITECTURE OVERVIEW -->
+        <section id="architecture" class="section">
+            <h2>🏛️ Architecture Overview</h2>
+            <div class="section-intro">
+                <p>
+                    Built 100% on Databricks native components. No external dependencies. The architecture follows
+                    three clear layers: <strong>Frontend/Orchestration</strong> → <strong>RAG/Knowledge</strong> →
+                    <strong>Execution</strong>.
+                </p>
+            </div>
+
+            <div class="diagram-grid">
+                <div class="diagram-card">
+                    <h3>1️⃣ System Overview - Start Here</h3>
+                    <p><strong>What it shows:</strong> The big picture of how DRE 3D fits into your Databricks
+                        environment</p>
+                    <p>The system sits between your data sources and consumers, monitoring pipelines and catching issues
+                        before they propagate.</p>
+                    <img src="https://raw.githubusercontent.com/indraykk83/dre-design/main/puml/00_system_overview.png"
+                        alt="System Overview">
+                    <div class="diagram-links">
+                        <a href="https://github.com/indraykk83/dre-design/blob/main/puml/00_system_overview.puml"
+                            target="_blank">View Source</a>
+                    </div>
+                </div>
+
+                <div class="diagram-card">
+                    <h3>2️⃣ Databricks-Native Architecture</h3>
+                    <p><strong>What it shows:</strong> All components mapped to Databricks services (Apps, Workflows,
+                        Unity Catalog, Mosaic AI)</p>
+                    <p>This is the corrected architecture using Databricks Apps (not Genie Space) for full read-write
+                        capability.</p>
+                    <img src="https://raw.githubusercontent.com/indraykk83/dre-design/main/puml/26_databricks_native_architecture_simple.png"
+                        alt="Architecture Overview">
+                    <div class="diagram-links">
+                        <a href="https://github.com/indraykk83/dre-design/blob/main/puml/26_databricks_native_architecture_simple.puml"
+                            target="_blank">View Source</a>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- HOW IT WORKS - LAYERS -->
+        <section id="layers" class="section">
+            <h2>⚙️ How It Works: The Three Layers</h2>
+            <div class="section-intro">
+                <p>
+                    The system is organized into three layers, each with clear responsibilities.
+                    Think of it like a car: the dashboard (frontend), the engine (RAG/AI), and the wheels (execution).
+                </p>
+            </div>
+
+            <div class="diagram-grid">
+                <div class="diagram-card">
+                    <h3>Layer 1: Frontend & Orchestration</h3>
+                    <p><strong>What happens here:</strong> Users interact with Databricks Apps to write rules or ask
+                        questions</p>
+                    <p>LangGraph orchestrates multi-agent conversations (Parser → Validator → Security → SQL Generator →
+                        Approval)</p>
+                    <img src="https://raw.githubusercontent.com/indraykk83/dre-design/main/puml/27_frontend_orchestration_layer.png"
+                        alt="Frontend Layer">
+                    <div class="diagram-links">
+                        <a href="https://github.com/indraykk83/dre-design/blob/main/puml/27_frontend_orchestration_layer.puml"
+                            target="_blank">View Source</a>
+                    </div>
+                </div>
+
+                <div class="diagram-card">
+                    <h3>Layer 2: RAG Knowledge Base</h3>
+                    <p><strong>What happens here:</strong> AI agents retrieve relevant context from documentation, past
+                        incidents, and logs</p>
+                    <p>Uses UC Volumes for raw docs, Delta for chunked data, and AI Search for semantic retrieval with
+                        CRAG confidence gating.</p>
+                    <img src="https://raw.githubusercontent.com/indraykk83/dre-design/main/puml/28_rag_knowledge_base_layer.png"
+                        alt="RAG Layer">
+                    <div class="diagram-links">
+                        <a href="https://github.com/indraykk83/dre-design/blob/main/puml/28_rag_knowledge_base_layer.puml"
+                            target="_blank">View Source</a>
+                    </div>
+                </div>
+
+                <div class="diagram-card">
+                    <h3>Layer 3: Execution (D1/D2/D3)</h3>
+                    <p><strong>What happens here:</strong> Databricks Workflows run scheduled detection, diagnosis, and
+                        deflection jobs</p>
+                    <p>D1 detects anomalies → D2 diagnoses root cause → D3 generates fixes and creates tickets.</p>
+                    <img src="https://raw.githubusercontent.com/indraykk83/dre-design/main/puml/29_execution_d1_d2_d3_layer.png"
+                        alt="Execution Layer">
+                    <div class="diagram-links">
+                        <a href="https://github.com/indraykk83/dre-design/blob/main/puml/29_execution_d1_d2_d3_layer.puml"
+                            target="_blank">View Source</a>
+                    </div>
+                </div>
+
+                <div class="diagram-card">
+                    <h3>Component Responsibilities (Swimlane)</h3>
+                    <p><strong>What it shows:</strong> Who does what? Clear separation of concerns across components</p>
+                    <p>Frontend owns UX, LangGraph owns orchestration, Agents own reasoning, Workflows own async
+                        execution.</p>
+                    <img src="https://raw.githubusercontent.com/indraykk83/dre-design/main/puml/35_swimlane_component_responsibilities.png"
+                        alt="Swimlane">
+                    <div class="diagram-links">
+                        <a href="https://github.com/indraykk83/dre-design/blob/main/puml/35_swimlane_component_responsibilities.puml"
+                            target="_blank">View Source</a>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- USER JOURNEYS -->
+        <section id="flows" class="section">
+            <h2>👤 User Journeys: What Does It Look Like?</h2>
+            <div class="section-intro">
+                <p>
+                    Two main ways users interact with the system: <strong>Interactive</strong> (self-service portal with chatbot to create rules and ask questions)
+                    and <strong>Async</strong> (scheduled D1/D2/D3 jobs running in background).
+                </p>
+            </div>
+
+            <div class="diagram-grid">
+                <div class="diagram-card">
+                    <h3>Journey 1: Self-Service Rule Creation via Chatbot</h3>
+                    <p><strong>The story:</strong> Sarah (data analyst, no SQL knowledge) opens the self-service portal and types in the chatbot:</p>
+                    <p style="font-style: italic; color: #667eea;">"Check if customer_id is never null in orders table"</p>
+                    <p>The LLM translates this to SQL, validates through 10 stages (security, PII check, duplicate detection),
+                        generates the final DQ rule, and routes for approval. Once approved, <strong>D1 Detection Agent uses this rule</strong>
+                        to continuously monitor the orders table.</p>
+                    <p style="margin-top: 0.5rem; font-size: 0.9rem; color: #555;">
+                        <strong>Key benefit:</strong> No coding required. Rules are captured conversationally and automatically deployed to D1.
+                    </p>
+                    <img src="https://raw.githubusercontent.com/indraykk83/dre-design/main/puml/33_interactive_flows_sequence.png"
+                        alt="Interactive Flows">
+                    <div class="diagram-links">
+                        <a href="https://github.com/indraykk83/dre-design/blob/main/puml/33_interactive_flows_sequence.puml"
+                            target="_blank">View Source</a>
+                    </div>
+                </div>
+
+                <div class="diagram-card">
+                    <h3>Journey 2: Asking "Why Did My Pipeline Fail?"</h3>
+                    <p><strong>The story:</strong> John (data engineer) sees a failed pipeline and asks the chatbot:</p>
+                    <p style="font-style: italic; color: #667eea;">"Why did the customer_orders pipeline fail at 3am?"</p>
+                    <p>D2 Diagnosis Agent retrieves logs from the last 7 days, correlates with recent deployments in last 24 hours,
+                        checks data drift, consults incident knowledge base, and generates a root cause report with fix recommendations.</p>
+                    <img src="https://raw.githubusercontent.com/indraykk83/dre-design/main/puml/33_interactive_flows_sequence.png"
+                        alt="Interactive Flows">
+                    <div class="diagram-links">
+                        <a href="https://github.com/indraykk83/dre-design/blob/main/puml/33_interactive_flows_sequence.puml"
+                            target="_blank">View Source</a>
+                    </div>
+                </div>
+
+                <div class="diagram-card">
+                    <h3>Journey 3: Automatic Detection & Deflection</h3>
+                    <p><strong>The story:</strong> Every hour, <strong>D1 Detection Agent</strong> runs all user-defined quality rules. When it finds an anomaly...</p>
+                    <p>D1 detects null customer_id (Sarah's rule from Journey 1) → D2 automatically investigates root cause →
+                        D3 generates a fix (e.g., "add NOT NULL constraint"), creates a Jira ticket with fix code,
+                        and waits for approval before applying the fix.</p>
+                    <p style="margin-top: 0.5rem; font-size: 0.9rem; color: #555;">
+                        <strong>Key benefit:</strong> Full automation loop from rule creation (Journey 1) → detection (D1) → diagnosis (D2) → deflection (D3).
+                    </p>
+                    <img src="https://raw.githubusercontent.com/indraykk83/dre-design/main/puml/34_async_d1_d2_d3_flows.png"
+                        alt="Async Flows">
+                    <div class="diagram-links">
+                        <a href="https://github.com/indraykk83/dre-design/blob/main/puml/34_async_d1_d2_d3_flows.puml"
+                            target="_blank">View Source</a>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- VALIDATION & GOVERNANCE -->
+        <section id="validation" class="section">
+            <h2>🛡️ Safety & Governance: How We Prevent Disasters</h2>
+            <div class="section-intro">
+                <p>
+                    <strong>The most important part:</strong> We don't just generate SQL from natural language and run
+                    it.
+                    Every rule goes through 10 validation stages to prevent security issues, PII leaks, and duplicate
+                    work.
+                </p>
+            </div>
+
+            <div class="diagram-grid">
+                <div class="diagram-card">
+                    <h3>10-Stage Validation Pipeline</h3>
+                    <p><strong>What it shows:</strong> The journey of a user's request from raw query to approved SQL
+                    </p>
+                    <p><strong>Key stages:</strong></p>
+                    <ul style="margin-left: 1.5rem; font-size: 0.85rem; color: #555;">
+                        <li>Query Optimization (LLM): Clarifies ambiguous requests</li>
+                        <li>Security Layer (Rule-based): Blocks DROP, DELETE, ALTER commands</li>
+                        <li>Governance Layer (RAG): Checks for PII data access</li>
+                        <li>Duplicate Detection (Vector Search): "This rule already exists as Rule #143"</li>
+                        <li>SQL Validation (Rule-based): Syntax check, table existence</li>
+                        <li>Approval Gateway: Routes to right approver based on impact</li>
+                    </ul>
+                    <img src="https://raw.githubusercontent.com/indraykk83/dre-design/main/puml/30_rag_validation_pipeline.png"
+                        alt="Validation Pipeline">
+                    <div class="diagram-links">
+                        <a href="https://github.com/indraykk83/dre-design/blob/main/puml/30_rag_validation_pipeline.puml"
+                            target="_blank">View Source</a>
+                    </div>
+                </div>
+
+                <div class="diagram-card">
+                    <h3>Validation Layers (Component View)</h3>
+                    <p><strong>What it shows:</strong> How different validation components work together</p>
+                    <p>CAG (small docs) vs CRAG (large knowledge base) vs Rule-based (deterministic checks).
+                        Each has different confidence thresholds and fallback strategies.</p>
+                    <img src="https://raw.githubusercontent.com/indraykk83/dre-design/main/puml/31_validation_layers_architecture.png"
+                        alt="Validation Layers">
+                    <div class="diagram-links">
+                        <a href="https://github.com/indraykk83/dre-design/blob/main/puml/31_validation_layers_architecture.puml"
+                            target="_blank">View Source</a>
+                    </div>
+                </div>
+
+                <div class="diagram-card">
+                    <h3>Approval Workflow</h3>
+                    <p><strong>What it shows:</strong> How rules are routed to the right approver based on risk</p>
+                    <p>Low-risk rules (simple checks) go to data stewards. High-risk rules (DROP, PII access)
+                        require data owner + security approval.</p>
+                    <img src="https://raw.githubusercontent.com/indraykk83/dre-design/main/puml/11_approval_workflow.png"
+                        alt="Approval">
+                    <div class="diagram-links">
+                        <a href="https://github.com/indraykk83/dre-design/blob/main/puml/11_approval_workflow.puml"
+                            target="_blank">View Source</a>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SPECIALIZED DIAGRAMS -->
+        <section id="specialized" class="section">
+            <h2>🔬 Deep Dives: Technical Details</h2>
+            <div class="section-intro">
+                <p>
+                    For technical audiences who want to understand specific components in detail.
+                </p>
+            </div>
+
+            <div class="diagram-grid">
+                <div class="diagram-card">
+                    <h3>CRAG Retrieval Strategy</h3>
+                    <p><strong>What it shows:</strong> How CRAG (Corrective RAG) works with confidence-based gating</p>
+                    <p>If retrieval confidence is HIGH (≥0.72), use the documents. If MEDIUM (0.50-0.72), rewrite the
+                        query and retry.
+                        If LOW (<0.50), fall back to LLM generation without RAG.</p>
+                            <img src="https://raw.githubusercontent.com/indraykk83/dre-design/main/puml/21_crag_retrieval_strategy.png"
+                                alt="CRAG Strategy">
+                            <div class="diagram-links">
+                                <a href="https://github.com/indraykk83/dre-design/blob/main/puml/21_crag_retrieval_strategy.puml"
+                                    target="_blank">View Source</a>
+                            </div>
+                </div>
+
+                <div class="diagram-card">
+                    <h3>D2 Diagnosis Deep Dive</h3>
+                    <p><strong>What it shows:</strong> Step-by-step breakdown of how D2 Diagnosis Agent investigates
+                        failures</p>
+                    <p>Retrieves logs from last 7 days, correlates with deployments in last 24 hours, checks data drift,
+                        consults incident knowledge base for similar past issues.</p>
+                    <img src="https://raw.githubusercontent.com/indraykk83/dre-design/main/puml/15_d2_diagnosis_flow.png"
+                        alt="D2 Flow">
+                    <div class="diagram-links">
+                        <a href="https://github.com/indraykk83/dre-design/blob/main/puml/15_d2_diagnosis_flow.puml"
+                            target="_blank">View Source</a>
+                    </div>
+                </div>
+
+                <div class="diagram-card">
+                    <h3>D3 Deflection Deep Dive</h3>
+                    <p><strong>What it shows:</strong> How D3 generates fixes and handles the approval/execution loop
+                    </p>
+                    <p>Generates fix candidates (with confidence scores), checks remediation policy for auto-approve
+                        rules,
+                        creates Jira tickets with fix code attached, executes approved fixes.</p>
+                    <img src="https://raw.githubusercontent.com/indraykk83/dre-design/main/puml/16_d3_deflection_flow.png"
+                        alt="D3 Flow">
+                    <div class="diagram-links">
+                        <a href="https://github.com/indraykk83/dre-design/blob/main/puml/16_d3_deflection_flow.puml"
+                            target="_blank">View Source</a>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </div>
+
+    <footer>
+        <p>&copy; 2026 DRE 3D Data Quality Framework | Architecture Documentation</p>
+        <p><small>Built on Databricks | Powered by LangGraph + Mosaic AI</small></p>
+    </footer>
+
+    <script>
+        // Add click to open full size
+        document.querySelectorAll('.diagram-card img').forEach(img => {
+            img.addEventListener('click', function () {
+                window.open(this.src, '_blank');
+            });
+        });
+
+        // Smooth scroll for navigation
+        document.querySelectorAll('nav a').forEach(anchor => {
+            anchor.addEventListener('click', function (e) {
+                e.preventDefault();
+                const target = document.querySelector(this.getAttribute('href'));
+                target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            });
+        });
+    </script>
+</body>
+
+</html>

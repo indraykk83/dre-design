@@ -14,7 +14,7 @@ skinparam sequence {
   BoxFontSize 9
 }
 
-title DQ Rule Authoring -- End-to-End Data Flow\nDatabricks | Mosaic AI | Delta Lake | Unity Catalog | Python | Turn 1: SUGGEST >> Turn 2: APPLY
+title DQ Rule Authoring -- End-to-End Data Flow\nDatabricks | Model Serving Endpoint | Delta Lake | Unity Catalog | Python | Turn 1: SUGGEST >> Turn 2: APPLY
 
 ' -------------------------------------------------------
 ' PLATFORM SWIMLANES
@@ -24,8 +24,8 @@ box "Browser" #FFF3E0
   actor "Data Engineer\nor Business Analyst" as USR
 end box
 
-box "Databricks Workspace  |  Genie Space (Mosaic AI)" #E3F2FD
-  participant "Genie Space\n[Chat UI]" as GENIE
+box "Databricks Workspace  |  DQ Chatbot App (LangGraph)" #E3F2FD
+  participant "DQ Chatbot App\n[LangGraph + Streamlit]" as GENIE
   participant "Intent Router\n[llama-3.1-70b\n Serverless]" as INTENT
 end box
 
@@ -46,7 +46,7 @@ box "Unity Catalog  |  Delta Lake" #FFF8E1
   database "table_daily_metrics\n[Delta Table\n EWMA baselines]" as METRICS
 end box
 
-box "Mosaic AI  |  Model Serving (Databricks Serverless)" #FCE4EC
+box "Model Serving Endpoint  |  Self-hosted (Databricks Serverless)" #FCE4EC
   participant "LLM Endpoint\n[claude-3-5-sonnet\n llama-3.1-70b]" as LLM
   participant "Embedding\n[BGE-M3\n text-to-vector]" as EMBED
 end box

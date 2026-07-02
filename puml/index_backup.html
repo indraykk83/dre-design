@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DRE 3D - Complete Architecture Story</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background: #f5f7fa;
+        }
+        
+        header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 2rem;
+            text-align: center;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 0.5rem;
+        }
+        
+        header p {
+            font-size: 1.1rem;
+            opacity: 0.9;
+        }
+        
+        nav {
+            background: white;
+            padding: 1rem 2rem;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+        
+        nav ul {
+            list-style: none;
+            display: flex;
+            gap: 2rem;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+        
+        nav a {
+            color: #667eea;
+            text-decoration: none;
+            font-weight: 500;
+            transition: color 0.3s;
+        }
+        
+        nav a:hover {
+            color: #764ba2;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+        
+        .section {
+            margin-bottom: 3rem;
+        }
+        
+        .section h2 {
+            font-size: 1.8rem;
+            color: #667eea;
+            margin-bottom: 1.5rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 3px solid #667eea;
+        }
+        
+        .diagram-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(500px, 1fr));
+            gap: 2rem;
+        }
+        
+        .diagram-card {
+            background: white;
+            border-radius: 8px;
+            padding: 1.5rem;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            transition: transform 0.3s, box-shadow 0.3s;
+        }
+        
+        .diagram-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 5px 20px rgba(0,0,0,0.15);
+        }
+        
+        .diagram-card h3 {
+            font-size: 1.2rem;
+            color: #333;
+            margin-bottom: 0.5rem;
+        }
+        
+        .diagram-card p {
+            color: #666;
+            font-size: 0.9rem;
+            margin-bottom: 1rem;
+        }
+        
+        .diagram-card img {
+            width: 100%;
+            border: 1px solid #e0e0e0;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: opacity 0.3s;
+        }
+        
+        .diagram-card img:hover {
+            opacity: 0.9;
+        }
+        
+        .diagram-links {
+            margin-top: 1rem;
+            display: flex;
+            gap: 1rem;
+        }
+        
+        .diagram-links a {
+            padding: 0.5rem 1rem;
+            background: #667eea;
+            color: white;
+            text-decoration: none;
+            border-radius: 4px;
+            font-size: 0.85rem;
+            transition: background 0.3s;
+        }
+        
+        .diagram-links a:hover {
+            background: #764ba2;
+        }
+        
+        footer {
+            background: #333;
+            color: white;
+            text-align: center;
+            padding: 2rem;
+            margin-top: 3rem;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 2rem;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>DRE 3D Data Quality Framework</h1>
+        <p>Architecture Diagram Gallery</p>
+    </header>
+    
+    <nav>
+        <ul>
+            <li><a href="#overview">Overview</a></li>
+            <li><a href="#layers">Layer Details</a></li>
+            <li><a href="#flows">Flow Diagrams</a></li>
+            <li><a href="#validation">Validation Pipeline</a></li>
+            <li><a href="#specialized">Specialized</a></li>
+        </ul>
+    </nav>
+    
+    <div class="container">
+        <section id="overview" class="section">
+            <h2>📊 Overview Diagrams</h2>
+            <div class="diagram-grid">
+                <div class="diagram-card">
+                    <h3>26. Databricks Native Architecture (Simple)</h3>
+                    <p>High-level overview of the corrected Databricks-native architecture</p>
+                    <img src="https://raw.githubusercontent.com/indraykk83/dre-design/main/puml/png/26_databricks_native_architecture_simple.png" alt="Architecture Overview">
+                    <div class="diagram-links">
+                        <a href="https://github.com/indraykk83/dre-design/blob/main/puml/png/26_databricks_native_architecture_simple.puml" target="_blank">View Source</a>
+                        <a href="https://raw.githubusercontent.com/indraykk83/dre-design/main/puml/26_databricks_native_architecture_simple.png" target="_blank">Open Full Size</a>
+                    </div>
+                </div>
+                
+                <div class="diagram-card">
+                    <h3>00. System Overview</h3>
+                    <p>Original high-level system overview</p>
+                    <img src="https://raw.githubusercontent.com/indraykk83/dre-design/main/puml/00_system_overview.png" alt="System Overview">
+                    <div class="diagram-links">
+                        <a href="https://github.com/indraykk83/dre-design/blob/main/puml/00_system_overview.puml" target="_blank">View Source</a>
+                    </div>
+                </div>
+            </div>
+        </section>
+        
+        <section id="layers" class="section">
+            <h2>🏗️ Layer Details</h2>
+            <div class="diagram-grid">
+                <div class="diagram-card">
+                    <h3>27. Frontend & Orchestration Layer</h3>
+                    <p>Databricks Apps + LangGraph orchestration</p>
+                    <img src="https://raw.githubusercontent.com/indraykk83/dre-design/main/puml/27_frontend_orchestration_layer.png" alt="Frontend Layer">
+                    <div class="diagram-links">
+                        <a href="https://github.com/indraykk83/dre-design/blob/main/puml/27_frontend_orchestration_layer.puml" target="_blank">View Source</a>
+                    </div>
+                </div>
+                
+                <div class="diagram-card">
+                    <h3>28. RAG Knowledge Base Layer</h3>
+                    <p>UC Volumes + Delta + AI Search</p>
+                    <img src="https://raw.githubusercontent.com/indraykk83/dre-design/main/puml/28_rag_knowledge_base_layer.png" alt="RAG Layer">
+                    <div class="diagram-links">
+                        <a href="https://github.com/indraykk83/dre-design/blob/main/puml/28_rag_knowledge_base_layer.puml" target="_blank">View Source</a>
+                    </div>
+                </div>
+                
+                <div class="diagram-card">
+                    <h3>29. Execution D1/D2/D3 Layer</h3>
+                    <p>Detection → Diagnosis → Deflection</p>
+                    <img src="https://raw.githubusercontent.com/indraykk83/dre-design/main/puml/29_execution_d1_d2_d3_layer.png" alt="Execution Layer">
+                    <div class="diagram-links">
+                        <a href="https://github.com/indraykk83/dre-design/blob/main/puml/29_execution_d1_d2_d3_layer.puml" target="_blank">View Source</a>
+                    </div>
+                </div>
+            </div>
+        </section>
+        
+        <section id="flows" class="section">
+            <h2>🔄 Flow Diagrams</h2>
+            <div class="diagram-grid">
+                <div class="diagram-card">
+                    <h3>33. Interactive Flows</h3>
+                    <p>Rule authoring + diagnosis query</p>
+                    <img src="https://raw.githubusercontent.com/indraykk83/dre-design/main/puml/33_interactive_flows_sequence.png" alt="Interactive Flows">
+                    <div class="diagram-links">
+                        <a href="https://github.com/indraykk83/dre-design/blob/main/puml/33_interactive_flows_sequence.puml" target="_blank">View Source</a>
+                    </div>
+                </div>
+                
+                <div class="diagram-card">
+                    <h3>34. Async D1/D2/D3 Flows</h3>
+                    <p>Scheduled detection → diagnosis → deflection</p>
+                    <img src="https://raw.githubusercontent.com/indraykk83/dre-design/main/puml/34_async_d1_d2_d3_flows.png" alt="Async Flows">
+                    <div class="diagram-links">
+                        <a href="https://github.com/indraykk83/dre-design/blob/main/puml/34_async_d1_d2_d3_flows.puml" target="_blank">View Source</a>
+                    </div>
+                </div>
+                
+                <div class="diagram-card">
+                    <h3>35. Swimlane Component Responsibilities</h3>
+                    <p>Component responsibilities by layer</p>
+                    <img src="https://raw.githubusercontent.com/indraykk83/dre-design/main/puml/35_swimlane_component_responsibilities.png" alt="Swimlane">
+                    <div class="diagram-links">
+                        <a href="https://github.com/indraykk83/dre-design/blob/main/puml/35_swimlane_component_responsibilities.puml" target="_blank">View Source</a>
+                    </div>
+                </div>
+            </div>
+        </section>
+        
+        <section id="validation" class="section">
+            <h2>✅ Validation Pipeline</h2>
+            <div class="diagram-grid">
+                <div class="diagram-card">
+                    <h3>30. RAG Validation Pipeline</h3>
+                    <p>10-stage validation: Query → CAG → CRAG → Security → Governance → Optimization → Validation → Approval</p>
+                    <img src="https://raw.githubusercontent.com/indraykk83/dre-design/main/puml/30_rag_validation_pipeline.png" alt="Validation Pipeline">
+                    <div class="diagram-links">
+                        <a href="https://github.com/indraykk83/dre-design/blob/main/puml/30_rag_validation_pipeline.puml" target="_blank">View Source</a>
+                    </div>
+                </div>
+                
+                <div class="diagram-card">
+                    <h3>31. Validation Layers Architecture</h3>
+                    <p>Component view of validation layers</p>
+                    <img src="https://raw.githubusercontent.com/indraykk83/dre-design/main/puml/31_validation_layers_architecture.png" alt="Validation Layers">
+                    <div class="diagram-links">
+                        <a href="https://github.com/indraykk83/dre-design/blob/main/puml/31_validation_layers_architecture.puml" target="_blank">View Source</a>
+                    </div>
+                </div>
+            </div>
+        </section>
+        
+        <section id="specialized" class="section">
+            <h2>🎯 Specialized Diagrams</h2>
+            <div class="diagram-grid">
+                <div class="diagram-card">
+                    <h3>21. CRAG Retrieval Strategy</h3>
+                    <p>Confidence-gated RAG with query rewrite</p>
+                    <img src="https://raw.githubusercontent.com/indraykk83/dre-design/main/puml/21_crag_retrieval_strategy.png" alt="CRAG Strategy">
+                    <div class="diagram-links">
+                        <a href="https://github.com/indraykk83/dre-design/blob/main/puml/21_crag_retrieval_strategy.puml" target="_blank">View Source</a>
+                    </div>
+                </div>
+                
+                <div class="diagram-card">
+                    <h3>15. D2 Diagnosis Flow</h3>
+                    <p>Detailed D2 diagnosis workflow</p>
+                    <img src="https://raw.githubusercontent.com/indraykk83/dre-design/main/puml/15_d2_diagnosis_flow.png" alt="D2 Flow">
+                    <div class="diagram-links">
+                        <a href="https://github.com/indraykk83/dre-design/blob/main/puml/15_d2_diagnosis_flow.puml" target="_blank">View Source</a>
+                    </div>
+                </div>
+                
+                <div class="diagram-card">
+                    <h3>16. D3 Deflection Flow</h3>
+                    <p>Detailed D3 deflection workflow</p>
+                    <img src="https://raw.githubusercontent.com/indraykk83/dre-design/main/puml/16_d3_deflection_flow.png" alt="D3 Flow">
+                    <div class="diagram-links">
+                        <a href="https://github.com/indraykk83/dre-design/blob/main/puml/16_d3_deflection_flow.puml" target="_blank">View Source</a>
+                    </div>
+                </div>
+                
+                <div class="diagram-card">
+                    <h3>11. Approval Workflow</h3>
+                    <p>Rule approval routing and SLA</p>
+                    <img src="https://raw.githubusercontent.com/indraykk83/dre-design/main/puml/11_approval_workflow.png" alt="Approval">
+                    <div class="diagram-links">
+                        <a href="https://github.com/indraykk83/dre-design/blob/main/puml/11_approval_workflow.puml" target="_blank">View Source</a>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </div>
+    
+    <footer>
+        <p>&copy; 2026 DRE 3D Data Quality Framework | Architecture Documentation</p>
+        <p><small>Powered by PlantUML + GitHub Pages</small></p>
+    </footer>
+    
+    <script>
+        // Add click to open full size
+        document.querySelectorAll('.diagram-card img').forEach(img => {
+            img.addEventListener('click', function() {
+                window.open(this.src, '_blank');
+            });
+        });
+        
+        // Smooth scroll for navigation
+        document.querySelectorAll('nav a').forEach(anchor => {
+            anchor.addEventListener('click', function(e) {
+                e.preventDefault();
+                const target = document.querySelector(this.getAttribute('href'));
+                target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            });
+        });
+    </script>
+</body>
+</html>

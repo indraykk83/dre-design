@@ -22,11 +22,11 @@ left to right direction
 actor User as "User\n(Data Engineer / BA /\nPO / Tech Lead / Governance)"
 
 package "3D Data Quality Framework" {
-  rectangle Genie as "Genie Space\n(Mosaic AI Agent Chat)\n----------------------------\nNL Q&A + intent routing\nread-only Delta queries\napproval status tracking"
+  rectangle Genie as "DQ Chatbot App\n(Databricks Apps + LangGraph)\n----------------------------\nNL Q&A + intent routing\nconversation session memory\nLangGraph tool dispatch"
 
   rectangle Backend as "DQ Backend App\n(Databricks App / REST)\n----------------------------\nrule CREATE / UPDATE\nSQL validate + trend score\nwrites anomaly_check_config"
 
-  rectangle LLM as "LLM Engine\n(Mosaic AI / BYOM)\n----------------------------\nintent parsing\nSQL generation and tuning\ntrend score prediction"
+  rectangle LLM as "LLM Engine\n(Model Serving Endpoint / BYOM)\n----------------------------\nintent parsing\nSQL generation and tuning\ntrend score prediction"
 
   rectangle Validator as "Rule Validator\n(Python + SQL parser)\n----------------------------\nsecurity checks\nsyntax + schema validation\nduplicate detection"
 
@@ -51,12 +51,12 @@ package "3D Data Quality Framework" {
 }
 
 rectangle NotifyExt as "Notification Services\n(Email / Jira)"
-rectangle DataSrc as "Any UC Tables\n(including tables outside\nGenie data source context)"
-rectangle LlmApi as "LLM API\n(Mosaic model serving)"
+rectangle DataSrc as "Any UC Tables\n(including tables outside\nDQ Chatbot App context)"
+rectangle LlmApi as "LLM API\n(Model Serving Endpoint)"
 User --> Genie : interacts via chat (NL queries + rule requests)
-Genie --> Backend : invoke UC tool for WRITE\nand table-suggestion intents
-Genie --> RuleStore : SELECT queries (read-only)
-Genie --> SuggestStore : SELECT cached suggestions\n(if cache table is in Genie data sources)
+Genie --> Backend : LangGraph tool call (WRITE\nand suggest intents)
+Genie --> RuleStore : SELECT via tool call
+Genie --> SuggestStore : SELECT cached suggestions\n(via LangGraph tool call)
 Backend --> LLM : parse/generate/tune SQL
 Backend --> Validator : validate SQL
 Backend --> VectorIdx : embed_and_search(\nquery, top_k=8, filter={table, doc_type})

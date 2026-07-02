@@ -37,12 +37,12 @@ rectangle "Users" as USERS #FFF3E0 {
 
 ' ======================================================
 ' LAYER 1: CONVERSATIONAL AGENT LAYER
-' Hosted: Databricks Genie Space (Mosaic AI Agent Chat)
+' Hosted: Databricks Apps + LangGraph (self-hosted chatbot)
 ' ======================================================
 
-rectangle "Layer 1 -- Conversational Agent Layer\n(Databricks Genie Space / Mosaic AI Agent Chat)" as L1 #E3F2FD {
+rectangle "Layer 1 -- Conversational Agent Layer\n(Databricks Apps + LangGraph Chatbot)" as L1 #E3F2FD {
 
-  rectangle "<b>DQ Conversational Agent</b>\n(Genie Space)\n- NL understanding\n- Context-aware Q&A\n- Approval status tracking\n- Coverage gap surfacing" as GenieAgent #C5CAE9
+  rectangle "<b>DQ Conversational Agent</b>\n(LangGraph + Streamlit UI)\n- NL understanding\n- Context-aware Q&A\n- Approval status tracking\n- Coverage gap surfacing" as GenieAgent #C5CAE9
 
   rectangle "<b>Intent Router</b>\n(LLM classifier)\nREAD  --> Rule Browser (SELECT on Delta)\nWRITE --> UC Function Tool invocation\nAMBIG --> Clarification prompt" as IntentRouter #BBDEFB
 
@@ -59,7 +59,7 @@ rectangle "Layer 2 -- Rule Authoring Agent Pipeline\n(DQ Backend App -- Databric
 
   rectangle "<b>RAG Context Retriever</b>\n- Formulate semantic query\n- embed_and_search (BGE-M3, top-k=8)\n- Rank: contract + template + examples\n- Assemble LLM context window" as RAGAgent #C8E6C9
 
-  rectangle "<b>SQL Generator Agent</b>\n(Mosaic AI LLM)\n- Pattern-based SQL from NL\n- Grounded by RAG context\n- Adapts to check type taxonomy" as SQLGenAgent #C8E6C9
+  rectangle "<b>SQL Generator Agent</b>\n(Model Serving Endpoint)\n- Pattern-based SQL from NL\n- Grounded by RAG context\n- Adapts to check type taxonomy" as SQLGenAgent #C8E6C9
 
   rectangle "<b>Security Guard Agent</b>\n- SELECT-only enforcement\n- Block injection / DDL / DML\n- PII flag from data contract\n- Returns sanitised SQL" as SecAgent #C8E6C9
 
@@ -67,7 +67,7 @@ rectangle "Layer 2 -- Rule Authoring Agent Pipeline\n(DQ Backend App -- Databric
 
   rectangle "<b>Duplicate Detector Agent</b>\n- Structural + semantic similarity\n- Compare vs active rules\n- Return similarity score %" as DupAgent #C8E6C9
 
-  rectangle "<b>Trend Scorer Agent</b>\n(Mosaic AI LLM)\n- 30-day pass/fail history\n- Predict violation probability\n- Confidence: High/Med/Low" as TrendAgent #C8E6C9
+  rectangle "<b>Trend Scorer Agent</b>\n(Model Serving Endpoint)\n- 30-day pass/fail history\n- Predict violation probability\n- Confidence: High/Med/Low" as TrendAgent #C8E6C9
 
   rectangle "<b>Rule Submitter Agent</b>\n- INSERT anomaly_check_config\n- Trigger approval workflow\n- Bump version_id on edits\n- Write rule_audit_log" as SubmitAgent #C8E6C9
 
@@ -134,7 +134,7 @@ rectangle "Layer 5 -- D3 Deflection Agents\n(Databricks Workflows + Apps)" as L5
 
 together {
   package "Shared AI Infrastructure\n(Databricks Model Serving + Vector Search + MCP)" as AI #FFF8E1 {
-    rectangle "LLM API\n(Mosaic AI Model Serving)\nIntent / SQL / Trend / Diagnosis" as LLMAPI #FFFDE7
+    rectangle "LLM API\n(Model Serving Endpoint)\nIntent / SQL / Trend / Diagnosis" as LLMAPI #FFFDE7
     rectangle "Vector Search Endpoint\n(BGE-M3 embeddings)\ncosine similarity -- top-k\nUC Volume chunk index" as VSAPI #FFFDE7
     rectangle "MCP Tool Server\n(Anthropic MCP protocol)\nUC Functions | GitHub API\nConfluence API | ITSM API" as MCPSERVER #D7F5E3
   }

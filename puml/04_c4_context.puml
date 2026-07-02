@@ -85,7 +85,7 @@ rectangle DQA as "3D Data Quality Framework\n----\nSelf-service, AI-assisted dat
 ' -----------------------------------------------------
 package "External Systems" {
   rectangle DBX as "Databricks Platform\n(compute, Workflows,\nDelta Lake, Unity Catalog)"
-  rectangle LLM as "Mosaic AI / LLM\n(SQL generation, NLP,\ntrend scoring, Q&A)"
+  rectangle LLM as "Model Serving Endpoint / LLM\n(SQL generation, NLP,\ntrend scoring, Q&A)"
   rectangle UC  as "Unity Catalog\n(metadata, governance,\ndoc volumes)"
   rectangle NOTIFY as "Notification Services\n(Email + Jira auto-tickets)"
   rectangle DATA as "Source Data Tables\n(Delta Lake Gold/Silver/Bronze\n3,032 production tables)"

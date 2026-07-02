@@ -42,13 +42,13 @@ rectangle "Stakeholders" as USERS #FFF3E0 {
 ' ROW 1 -- SELF-SERVICE RULE CAPTURE
 ' ==================================================
 
-rectangle "Self-Service Rule Capture  (Databricks Genie Space + DQ Backend App)" as CAPTURE #E8F5E9 {
+rectangle "Self-Service Rule Capture  (DQ Chatbot App + DQ Backend App)" as CAPTURE #E8F5E9 {
 
-  rectangle "Conversational Agent\n(Genie Space)\nNL Q&A  |  Rule proposal\nCoverage gaps  |  KPI lookup" as GENIE #C5CAE9
+  rectangle "DQ Chatbot App\n(Databricks Apps + LangGraph)\nNL Q&A  |  Rule proposal\nCoverage gaps  |  KPI lookup" as GENIE #C5CAE9
 
   rectangle "Rule Authoring Pipeline\n(DQ Backend App)\nRAG Retriever  >  SQL Generator  >  Security Guard\nSQL Validator  >  Duplicate Detector  >  Trend Scorer\nRule Submitter  >  Approval Gateway\nCheck Suggestion Resolver (cache + schema gate)" as AUTHORING #C8E6C9
 
-  rectangle "LLM Engine\n(Mosaic AI Model Serving)\nIntent classification\nSQL generation\nTrend scoring" as LLM #DCEDC8
+  rectangle "LLM Engine\n(Model Serving Endpoint)\nIntent classification\nSQL generation\nTrend scoring" as LLM #DCEDC8
 }
 
 ' ==================================================
@@ -104,7 +104,7 @@ NOTIF    -[hidden]right-> OUTCOMES
 ' ==================================================
 
 USR       -down->   GENIE     : Natural language request / Q&A
-GENIE     -right->  AUTHORING : WRITE or table-suggestion intent
+GENIE     -right->  AUTHORING : LangGraph tool call (WRITE / suggest intent)
 AUTHORING -right->  LLM       : SQL generation + scoring
 
 AUTHORING -down->   RAG       : embed_and_search (BGE-M3, top-k=8)
@@ -127,7 +127,7 @@ note as OverviewGuide
   <b>How to read this diagram</b>
   ---------------------------------------------------------
   <b>TOP ROW</b> -- Who interacts:
-  Data Engineers and BAs author rules via Genie Space.
+  Data Engineers and BAs author rules via the DQ Chatbot App (Databricks Apps + LangGraph).
   Product Owners and Tech Leads approve. DataOps monitors.
 
   <b>CAPTURE LAYER</b> -- How rules are created:

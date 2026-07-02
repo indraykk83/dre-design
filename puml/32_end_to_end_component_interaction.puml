@@ -24,7 +24,7 @@ box "Orchestration (LangGraph)" #E8F5E9
 end box
 
 box "AI & RAG" #FFF8E1
-  participant "Mosaic AI\nLLM" as LLM
+  participant "Model Serving\nLLM" as LLM
   participant "AI Search\nVector Index" as VS
 end box
 
@@ -382,7 +382,7 @@ legend right
   <b>Technologies Used:</b>
   - <b>Databricks Apps:</b> UI hosting
   - <b>LangGraph:</b> Agent orchestration
-  - <b>Mosaic AI:</b> LLM inference
+  - <b>Model Serving Endpoint:</b> LLM inference
   - <b>AI Search:</b> RAG retrieval
   - <b>Unity Catalog:</b> Data layer
   - <b>Workflows:</b> D1/D2/D3 execution

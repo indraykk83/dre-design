@@ -1,0 +1,169 @@
+<?xml version='1.0' encoding='utf-8'?>
+<mxGraphModel dx="1422" dy="762" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="0" pageScale="1" pageWidth="1654" pageHeight="1169" math="0" shadow="0">
+  <root>
+    <mxCell id="0" />
+    <mxCell id="1" parent="0" />
+    <mxCell id="2" value="&lt;b&gt;&lt;font style='font-size:16px'&gt;DRE 3D — End-to-End Component Flow on Databricks SaaS&lt;/font&gt;&lt;/b&gt;" style="text;html=1;strokeColor=none;fillColor=#E8EAF6;align=center;verticalAlign=middle;fontSize=16;fontColor=#1A237E;fontStyle=1;" vertex="1" parent="1">
+      <mxGeometry x="10" y="10" width="1580" height="44" as="geometry" />
+    </mxCell>
+    <mxCell id="3" value="INTERACTION" style="rounded=1;whiteSpace=wrap;html=1;arcSize=4;fillColor=#E8EAF6;strokeColor=#3949AB;fontColor=#3949AB;strokeWidth=2;dashed=0;opacity=30;align=left;verticalAlign=top;fontSize=10;fontStyle=1;" vertex="1" parent="1">
+      <mxGeometry x="10" y="66" width="220" height="370" as="geometry" />
+    </mxCell>
+    <mxCell id="4" value="&lt;b&gt;👤 User&lt;/b&gt;&lt;br/&gt;&lt;font style='font-size:9px'&gt;Data Engineer / BA / PO&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;arcSize=6;align=center;verticalAlign=middle;fontSize=11;fontFamily=Helvetica;fillColor=#E8EAF6;strokeColor=#3949AB;fontColor=#3949AB;strokeWidth=2;bold=1;" vertex="1" parent="1">
+      <mxGeometry x="30" y="86" width="180" height="50" as="geometry" />
+    </mxCell>
+    <mxCell id="5" value="&lt;b&gt;DQ Chatbot App&lt;/b&gt;&lt;br/&gt;&lt;font color='#3949AB' style='font-size:9px'&gt;📱 Databricks Apps (Serverless)&lt;/font&gt;&lt;br/&gt;&lt;font style='font-size:9px'&gt;Streamlit UI · SSO / OAuth&lt;br/&gt;LangGraph runtime · Auto-scale&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;arcSize=6;align=center;verticalAlign=middle;fontSize=11;fontFamily=Helvetica;fillColor=#E8EAF6;strokeColor=#3949AB;fontColor=#3949AB;strokeWidth=2;bold=0;" vertex="1" parent="1">
+      <mxGeometry x="30" y="166" width="180" height="90" as="geometry" />
+    </mxCell>
+    <mxCell id="6" value="&lt;b&gt;Session Memory&lt;/b&gt;&lt;br/&gt;&lt;font color='#1B5E20' style='font-size:9px'&gt;📊 Delta Lake · agent_session_log&lt;/font&gt;&lt;br/&gt;&lt;font style='font-size:9px'&gt;Last 20 turns · cross-session context&lt;br/&gt;Compact after 10 turns → UC Volume&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;arcSize=6;align=center;verticalAlign=middle;fontSize=11;fontFamily=Helvetica;fillColor=#E8F5E9;strokeColor=#1B5E20;fontColor=#1B5E20;strokeWidth=2;bold=0;" vertex="1" parent="1">
+      <mxGeometry x="30" y="286" width="180" height="80" as="geometry" />
+    </mxCell>
+    <mxCell id="7" value="NL query" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;dashed=0;exitX=0.5;exitY=1.0;exitDx=0;exitDy=0;entryX=0.5;entryY=0.0;entryDx=0;entryDy=0;strokeColor=#3949AB;strokeWidth=2;fontColor=#3949AB;fontSize=9;fontFamily=Helvetica;fontStyle=2;startArrow=none;endArrow=block;endFill=1;" edge="1" source="4" target="5" parent="1">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="8" value="response / confirmation" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;dashed=0;exitX=0.1;exitY=0.0;exitDx=0;exitDy=0;entryX=0.1;entryY=1.0;entryDx=0;entryDy=0;strokeColor=#3949AB;strokeWidth=2;fontColor=#3949AB;fontSize=9;fontFamily=Helvetica;fontStyle=2;startArrow=none;endArrow=block;endFill=1;" edge="1" source="5" target="4" parent="1">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="9" value="read / write turns" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;dashed=1;dashPattern=8 4;exitX=0.5;exitY=1.0;exitDx=0;exitDy=0;entryX=0.5;entryY=0.0;entryDx=0;entryDy=0;strokeColor=#1B5E20;strokeWidth=2;fontColor=#1B5E20;fontSize=9;fontFamily=Helvetica;fontStyle=2;startArrow=none;endArrow=block;endFill=1;" edge="1" source="5" target="6" parent="1">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="10" value="ORCHESTRATION" style="rounded=1;whiteSpace=wrap;html=1;arcSize=4;fillColor=#E3F2FD;strokeColor=#0D47A1;fontColor=#0D47A1;strokeWidth=2;dashed=0;opacity=30;align=left;verticalAlign=top;fontSize=10;fontStyle=1;" vertex="1" parent="1">
+      <mxGeometry x="250" y="66" width="220" height="260" as="geometry" />
+    </mxCell>
+    <mxCell id="11" value="&lt;b&gt;LangGraph Orchestrator&lt;/b&gt;&lt;br/&gt;&lt;font color='#0D47A1' style='font-size:9px'&gt;📱 Databricks Apps runtime&lt;/font&gt;&lt;br/&gt;&lt;font style='font-size:9px'&gt;Intent router · State graph&lt;br/&gt;Tool dispatcher · Memory manager&lt;br/&gt;Temperature controller&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;arcSize=6;align=center;verticalAlign=middle;fontSize=11;fontFamily=Helvetica;fillColor=#E3F2FD;strokeColor=#0D47A1;fontColor=#0D47A1;strokeWidth=2;bold=1;" vertex="1" parent="1">
+      <mxGeometry x="270" y="86" width="180" height="110" as="geometry" />
+    </mxCell>
+    <mxCell id="12" value="&lt;b&gt;Rule Suggestion Cache&lt;/b&gt;&lt;br/&gt;&lt;font color='#1B5E20' style='font-size:9px'&gt;📊 Delta · check_suggestions_cache&lt;/font&gt;&lt;br/&gt;&lt;font style='font-size:9px'&gt;hash(schema+check_type) → cache hit&lt;br/&gt;Skip LLM on repeat queries&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;arcSize=6;align=center;verticalAlign=middle;fontSize=11;fontFamily=Helvetica;fillColor=#E8F5E9;strokeColor=#1B5E20;fontColor=#1B5E20;strokeWidth=2;bold=0;" vertex="1" parent="1">
+      <mxGeometry x="270" y="236" width="180" height="70" as="geometry" />
+    </mxCell>
+    <mxCell id="13" value="dispatch intent + session_id" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;dashed=0;exitX=1.0;exitY=0.5;exitDx=0;exitDy=0;entryX=0.0;entryY=0.5;entryDx=0;entryDy=0;strokeColor=#0D47A1;strokeWidth=2;fontColor=#0D47A1;fontSize=9;fontFamily=Helvetica;fontStyle=2;startArrow=none;endArrow=block;endFill=1;" edge="1" source="5" target="11" parent="1">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="14" value="cache hit → skip LLM" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;dashed=1;dashPattern=8 4;exitX=0.5;exitY=1.0;exitDx=0;exitDy=0;entryX=0.5;entryY=0.0;entryDx=0;entryDy=0;strokeColor=#1B5E20;strokeWidth=2;fontColor=#1B5E20;fontSize=9;fontFamily=Helvetica;fontStyle=2;startArrow=none;endArrow=block;endFill=1;" edge="1" source="11" target="12" parent="1">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="15" value="AI / INTELLIGENCE" style="rounded=1;whiteSpace=wrap;html=1;arcSize=4;fillColor=#FFF8E1;strokeColor=#E65100;fontColor=#E65100;strokeWidth=2;dashed=0;opacity=30;align=left;verticalAlign=top;fontSize=10;fontStyle=1;" vertex="1" parent="1">
+      <mxGeometry x="490" y="66" width="220" height="370" as="geometry" />
+    </mxCell>
+    <mxCell id="16" value="&lt;b&gt;AI Gateway&lt;/b&gt;&lt;br/&gt;&lt;font color='#E65100' style='font-size:9px'&gt;🛡️ Databricks AI Gateway&lt;/font&gt;&lt;br/&gt;&lt;font style='font-size:9px'&gt;Rate limits per team&lt;br/&gt;Token budgets · PII filter&lt;br/&gt;Cost caps ($)&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;arcSize=6;align=center;verticalAlign=middle;fontSize=11;fontFamily=Helvetica;fillColor=#FFF8E1;strokeColor=#E65100;fontColor=#E65100;strokeWidth=2;bold=1;" vertex="1" parent="1">
+      <mxGeometry x="510" y="86" width="180" height="80" as="geometry" />
+    </mxCell>
+    <mxCell id="17" value="&lt;b&gt;Model Serving Endpoint&lt;/b&gt;&lt;br/&gt;&lt;font color='#E65100' style='font-size:9px'&gt;🤖 Databricks Model Serving&lt;/font&gt;&lt;br/&gt;&lt;font style='font-size:9px'&gt;DBRX / BYOM self-hosted&lt;br/&gt;Autoscale → 0 · &amp;lt;5s p95&lt;br/&gt;Temp 0.1 SQL / 0.7 NL&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;arcSize=6;align=center;verticalAlign=middle;fontSize=11;fontFamily=Helvetica;fillColor=#FFF8E1;strokeColor=#E65100;fontColor=#E65100;strokeWidth=2;bold=0;" vertex="1" parent="1">
+      <mxGeometry x="510" y="196" width="180" height="85" as="geometry" />
+    </mxCell>
+    <mxCell id="18" value="&lt;b&gt;Vector Search&lt;/b&gt;&lt;br/&gt;&lt;font color='#E65100' style='font-size:9px'&gt;🔍 Databricks AI Search&lt;/font&gt;&lt;br/&gt;&lt;font style='font-size:9px'&gt;BGE-M3 embeddings&lt;br/&gt;CRAG-gated retrieval (k=8)&lt;br/&gt;Confidence: HIGH/MED/LOW&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;arcSize=6;align=center;verticalAlign=middle;fontSize=11;fontFamily=Helvetica;fillColor=#FFF8E1;strokeColor=#E65100;fontColor=#E65100;strokeWidth=2;bold=0;" vertex="1" parent="1">
+      <mxGeometry x="510" y="311" width="180" height="80" as="geometry" />
+    </mxCell>
+    <mxCell id="19" value="&lt;b&gt;UC Volume (RAG KB)&lt;/b&gt;&lt;br/&gt;&lt;font color='#1B5E20' style='font-size:9px'&gt;📁 Unity Catalog Volume&lt;/font&gt;&lt;br/&gt;&lt;font style='font-size:9px'&gt;data_contracts/&lt;br/&gt;sql_patterns/ · examples/&lt;br/&gt;domain_glossary/&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;arcSize=6;align=center;verticalAlign=middle;fontSize=11;fontFamily=Helvetica;fillColor=#E8F5E9;strokeColor=#1B5E20;fontColor=#1B5E20;strokeWidth=2;bold=0;" vertex="1" parent="1">
+      <mxGeometry x="510" y="411" width="180" height="70" as="geometry" />
+    </mxCell>
+    <mxCell id="20" value="LLM inference request" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;dashed=0;exitX=1.0;exitY=0.3;exitDx=0;exitDy=0;entryX=0.0;entryY=0.3;entryDx=0;entryDy=0;strokeColor=#E65100;strokeWidth=2;fontColor=#E65100;fontSize=9;fontFamily=Helvetica;fontStyle=2;startArrow=none;endArrow=block;endFill=1;" edge="1" source="11" target="16" parent="1">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="21" value="rate-limited, cost-capped" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;dashed=0;exitX=0.5;exitY=1.0;exitDx=0;exitDy=0;entryX=0.5;entryY=0.0;entryDx=0;entryDy=0;strokeColor=#E65100;strokeWidth=2;fontColor=#E65100;fontSize=9;fontFamily=Helvetica;fontStyle=2;startArrow=none;endArrow=block;endFill=1;" edge="1" source="16" target="17" parent="1">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="22" value="SQL / analysis response" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;dashed=0;exitX=0.0;exitY=0.6;exitDx=0;exitDy=0;entryX=1.0;entryY=0.6;entryDx=0;entryDy=0;strokeColor=#E65100;strokeWidth=2;fontColor=#E65100;fontSize=9;fontFamily=Helvetica;fontStyle=2;startArrow=none;endArrow=block;endFill=1;" edge="1" source="17" target="11" parent="1">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="23" value="embed_and_search(query, k=8)" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;dashed=0;exitX=1.0;exitY=0.7;exitDx=0;exitDy=0;entryX=0.0;entryY=0.5;entryDx=0;entryDy=0;strokeColor=#E65100;strokeWidth=2;fontColor=#E65100;fontSize=9;fontFamily=Helvetica;fontStyle=2;startArrow=none;endArrow=block;endFill=1;" edge="1" source="11" target="18" parent="1">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="24" value="index backed by raw docs" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;dashed=1;dashPattern=8 4;exitX=0.5;exitY=1.0;exitDx=0;exitDy=0;entryX=0.5;entryY=0.0;entryDx=0;entryDy=0;strokeColor=#1B5E20;strokeWidth=2;fontColor=#1B5E20;fontSize=9;fontFamily=Helvetica;fontStyle=2;startArrow=none;endArrow=block;endFill=1;" edge="1" source="18" target="19" parent="1">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="25" value="STATE / DATA" style="rounded=1;whiteSpace=wrap;html=1;arcSize=4;fillColor=#E8F5E9;strokeColor=#1B5E20;fontColor=#1B5E20;strokeWidth=2;dashed=0;opacity=30;align=left;verticalAlign=top;fontSize=10;fontStyle=1;" vertex="1" parent="1">
+      <mxGeometry x="730" y="66" width="220" height="415" as="geometry" />
+    </mxCell>
+    <mxCell id="26" value="&lt;b&gt;DQ Backend App&lt;/b&gt;&lt;br/&gt;&lt;font color='#1B5E20' style='font-size:9px'&gt;📱 Databricks Apps (REST)&lt;/font&gt;&lt;br/&gt;&lt;font style='font-size:9px'&gt;Rule validation · SQL security guard&lt;br/&gt;Duplicate detect · Trend scorer&lt;br/&gt;Approval gateway&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;arcSize=6;align=center;verticalAlign=middle;fontSize=11;fontFamily=Helvetica;fillColor=#E8F5E9;strokeColor=#1B5E20;fontColor=#1B5E20;strokeWidth=2;bold=1;" vertex="1" parent="1">
+      <mxGeometry x="750" y="86" width="180" height="90" as="geometry" />
+    </mxCell>
+    <mxCell id="27" value="&lt;b&gt;Delta Lake&lt;/b&gt;&lt;br/&gt;&lt;font color='#1B5E20' style='font-size:9px'&gt;🔺 Databricks Delta Lake&lt;/font&gt;&lt;br/&gt;&lt;font style='font-size:9px'&gt;&lt;b&gt;Tables:&lt;/b&gt; anomaly_check_config&lt;br/&gt;check_execution_log&lt;br/&gt;DIGITAL_DATA_ANOMALIES&lt;br/&gt;rule_audit_log · session_memory&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;arcSize=6;align=center;verticalAlign=middle;fontSize=11;fontFamily=Helvetica;fillColor=#E8F5E9;strokeColor=#1B5E20;fontColor=#1B5E20;strokeWidth=2;bold=0;" vertex="1" parent="1">
+      <mxGeometry x="750" y="206" width="180" height="110" as="geometry" />
+    </mxCell>
+    <mxCell id="28" value="&lt;b&gt;Unity Catalog&lt;/b&gt;&lt;br/&gt;&lt;font color='#1B5E20' style='font-size:9px'&gt;🗂️ Databricks Unity Catalog&lt;/font&gt;&lt;br/&gt;&lt;font style='font-size:9px'&gt;Governance · Data lineage&lt;br/&gt;Row/col security&lt;br/&gt;All tables registered here&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;arcSize=6;align=center;verticalAlign=middle;fontSize=11;fontFamily=Helvetica;fillColor=#E8F5E9;strokeColor=#1B5E20;fontColor=#1B5E20;strokeWidth=2;bold=0;" vertex="1" parent="1">
+      <mxGeometry x="750" y="346" width="180" height="80" as="geometry" />
+    </mxCell>
+    <mxCell id="29" value="tool_call: create_rule / validate_sql" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;dashed=0;exitX=1.0;exitY=0.5;exitDx=0;exitDy=0;entryX=0.0;entryY=0.5;entryDx=0;entryDy=0;strokeColor=#1B5E20;strokeWidth=2;fontColor=#1B5E20;fontSize=9;fontFamily=Helvetica;fontStyle=2;startArrow=none;endArrow=block;endFill=1;" edge="1" source="11" target="26" parent="1">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="30" value="INSERT anomaly_check_config" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;dashed=0;exitX=0.5;exitY=1.0;exitDx=0;exitDy=0;entryX=0.5;entryY=0.0;entryDx=0;entryDy=0;strokeColor=#1B5E20;strokeWidth=2;fontColor=#1B5E20;fontSize=9;fontFamily=Helvetica;fontStyle=2;startArrow=none;endArrow=block;endFill=1;" edge="1" source="26" target="27" parent="1">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="31" value="governed by" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;dashed=1;dashPattern=8 4;exitX=0.5;exitY=1.0;exitDx=0;exitDy=0;entryX=0.5;entryY=0.0;entryDx=0;entryDy=0;strokeColor=#1B5E20;strokeWidth=2;fontColor=#1B5E20;fontSize=9;fontFamily=Helvetica;fontStyle=2;startArrow=none;endArrow=block;endFill=1;" edge="1" source="27" target="28" parent="1">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="32" value="EXECUTION" style="rounded=1;whiteSpace=wrap;html=1;arcSize=4;fillColor=#F3E5F5;strokeColor=#6A1B9A;fontColor=#6A1B9A;strokeWidth=2;dashed=0;opacity=30;align=left;verticalAlign=top;fontSize=10;fontStyle=1;" vertex="1" parent="1">
+      <mxGeometry x="970" y="66" width="220" height="510" as="geometry" />
+    </mxCell>
+    <mxCell id="33" value="&lt;b&gt;Databricks Workflows&lt;/b&gt;&lt;br/&gt;&lt;font color='#6A1B9A' style='font-size:9px'&gt;📦 Databricks Workflows (Serverless)&lt;/font&gt;&lt;br/&gt;&lt;font style='font-size:9px'&gt;Scheduled + event-triggered jobs&lt;br/&gt;DAG orchestration · Delta trigger&lt;br/&gt;Multi-task job pipelines&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;arcSize=6;align=center;verticalAlign=middle;fontSize=11;fontFamily=Helvetica;fillColor=#F3E5F5;strokeColor=#6A1B9A;fontColor=#6A1B9A;strokeWidth=2;bold=1;" vertex="1" parent="1">
+      <mxGeometry x="990" y="86" width="180" height="90" as="geometry" />
+    </mxCell>
+    <mxCell id="34" value="&lt;b&gt;D1 — Detect Agent&lt;/b&gt;&lt;br/&gt;&lt;font color='#6A1B9A' style='font-size:9px'&gt;📦 Workflows Job&lt;/font&gt;&lt;br/&gt;&lt;font style='font-size:9px'&gt;5D anomaly checks&lt;br/&gt;Null/Outlier/Freshness/Volume/Schema&lt;br/&gt;EWMA baselines · SLA monitor&lt;br/&gt;P0 alert &amp;lt; 5 min&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;arcSize=6;align=center;verticalAlign=middle;fontSize=11;fontFamily=Helvetica;fillColor=#F3E5F5;strokeColor=#6A1B9A;fontColor=#6A1B9A;strokeWidth=2;bold=0;" vertex="1" parent="1">
+      <mxGeometry x="990" y="216" width="180" height="100" as="geometry" />
+    </mxCell>
+    <mxCell id="35" value="&lt;b&gt;D2 — Diagnose Agent&lt;/b&gt;&lt;br/&gt;&lt;font color='#6A1B9A' style='font-size:9px'&gt;📦 Workflows Job&lt;/font&gt;&lt;br/&gt;&lt;font style='font-size:9px'&gt;Drift classifier · Lineage tracer&lt;br/&gt;Segment slicer · Evidence retriever&lt;br/&gt;LLM root-cause playbook&lt;br/&gt;Confidence-scored output&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;arcSize=6;align=center;verticalAlign=middle;fontSize=11;fontFamily=Helvetica;fillColor=#F3E5F5;strokeColor=#6A1B9A;fontColor=#6A1B9A;strokeWidth=2;bold=0;" vertex="1" parent="1">
+      <mxGeometry x="990" y="346" width="180" height="100" as="geometry" />
+    </mxCell>
+    <mxCell id="36" value="&lt;b&gt;D3 — Deflect Agent&lt;/b&gt;&lt;br/&gt;&lt;font color='#6A1B9A' style='font-size:9px'&gt;📦 Workflows Job&lt;/font&gt;&lt;br/&gt;&lt;font style='font-size:9px'&gt;State validator · Circuit breaker&lt;br/&gt;12 domain expert agents&lt;br/&gt;(adiClub/CRM/Payments…)&lt;br/&gt;LLM playbook execution&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;arcSize=6;align=center;verticalAlign=middle;fontSize=11;fontFamily=Helvetica;fillColor=#F3E5F5;strokeColor=#6A1B9A;fontColor=#6A1B9A;strokeWidth=2;bold=0;" vertex="1" parent="1">
+      <mxGeometry x="990" y="476" width="180" height="100" as="geometry" />
+    </mxCell>
+    <mxCell id="37" value="event trigger / schedule" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;dashed=0;exitX=1.0;exitY=0.3;exitDx=0;exitDy=0;entryX=0.0;entryY=0.5;entryDx=0;entryDy=0;strokeColor=#6A1B9A;strokeWidth=2;fontColor=#6A1B9A;fontSize=9;fontFamily=Helvetica;fontStyle=2;startArrow=none;endArrow=block;endFill=1;" edge="1" source="27" target="33" parent="1">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="38" value="run detection job" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;dashed=0;exitX=0.5;exitY=1.0;exitDx=0;exitDy=0;entryX=0.5;entryY=0.0;entryDx=0;entryDy=0;strokeColor=#6A1B9A;strokeWidth=2;fontColor=#6A1B9A;fontSize=9;fontFamily=Helvetica;fontStyle=2;startArrow=none;endArrow=block;endFill=1;" edge="1" source="33" target="34" parent="1">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="39" value="trigger on anomaly event" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;dashed=0;exitX=0.5;exitY=1.0;exitDx=0;exitDy=0;entryX=0.5;entryY=0.0;entryDx=0;entryDy=0;strokeColor=#6A1B9A;strokeWidth=2;fontColor=#6A1B9A;fontSize=9;fontFamily=Helvetica;fontStyle=2;startArrow=none;endArrow=block;endFill=1;" edge="1" source="34" target="35" parent="1">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="40" value="trigger on diagnosis bundle" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;dashed=0;exitX=0.5;exitY=1.0;exitDx=0;exitDy=0;entryX=0.5;entryY=0.0;entryDx=0;entryDy=0;strokeColor=#6A1B9A;strokeWidth=2;fontColor=#6A1B9A;fontSize=9;fontFamily=Helvetica;fontStyle=2;startArrow=none;endArrow=block;endFill=1;" edge="1" source="35" target="36" parent="1">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="41" value="WRITE anomaly events" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;dashed=0;exitX=0.0;exitY=0.4;exitDx=0;exitDy=0;entryX=1.0;entryY=0.7;entryDx=0;entryDy=0;strokeColor=#1B5E20;strokeWidth=2;fontColor=#1B5E20;fontSize=9;fontFamily=Helvetica;fontStyle=2;startArrow=none;endArrow=block;endFill=1;" edge="1" source="34" target="27" parent="1">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="42" value="LLM: root-cause reasoning" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;dashed=1;dashPattern=8 4;exitX=0.0;exitY=0.3;exitDx=0;exitDy=0;entryX=1.0;entryY=0.7;entryDx=0;entryDy=0;strokeColor=#E65100;strokeWidth=2;fontColor=#E65100;fontSize=9;fontFamily=Helvetica;fontStyle=2;startArrow=none;endArrow=block;endFill=1;" edge="1" source="35" target="17" parent="1">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="43" value="retrieve runbook patterns" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;dashed=1;dashPattern=8 4;exitX=0.0;exitY=0.5;exitDx=0;exitDy=0;entryX=1.0;entryY=0.5;entryDx=0;entryDy=0;strokeColor=#E65100;strokeWidth=2;fontColor=#E65100;fontSize=9;fontFamily=Helvetica;fontStyle=2;startArrow=none;endArrow=block;endFill=1;" edge="1" source="35" target="18" parent="1">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="44" value="WRITE diagnosis bundle" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;dashed=0;exitX=0.0;exitY=0.6;exitDx=0;exitDy=0;entryX=1.0;entryY=0.8;entryDx=0;entryDy=0;strokeColor=#1B5E20;strokeWidth=2;fontColor=#1B5E20;fontSize=9;fontFamily=Helvetica;fontStyle=2;startArrow=none;endArrow=block;endFill=1;" edge="1" source="35" target="27" parent="1">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="45" value="WRITE deflection audit log" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;dashed=0;exitX=0.0;exitY=0.5;exitDx=0;exitDy=0;entryX=1.0;entryY=1.0;entryDx=0;entryDy=0;strokeColor=#1B5E20;strokeWidth=2;fontColor=#1B5E20;fontSize=9;fontFamily=Helvetica;fontStyle=2;startArrow=none;endArrow=block;endFill=1;" edge="1" source="36" target="27" parent="1">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="46" value="OPERATIONS" style="rounded=1;whiteSpace=wrap;html=1;arcSize=4;fillColor=#EFEBE9;strokeColor=#4E342E;fontColor=#4E342E;strokeWidth=2;dashed=0;opacity=30;align=left;verticalAlign=top;fontSize=10;fontStyle=1;" vertex="1" parent="1">
+      <mxGeometry x="1210" y="66" width="220" height="510" as="geometry" />
+    </mxCell>
+    <mxCell id="47" value="&lt;b&gt;Approval Gateway&lt;/b&gt;&lt;br/&gt;&lt;font color='#4E342E' style='font-size:9px'&gt;👤 Human-in-loop&lt;/font&gt;&lt;br/&gt;&lt;font style='font-size:9px'&gt;Auto-approve LOW severity&lt;br/&gt;P0/P1 → owner review&lt;br/&gt;SLA: 48 hr maximum&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;arcSize=6;align=center;verticalAlign=middle;fontSize=11;fontFamily=Helvetica;fillColor=#EFEBE9;strokeColor=#4E342E;fontColor=#4E342E;strokeWidth=2;bold=0;" vertex="1" parent="1">
+      <mxGeometry x="1230" y="86" width="180" height="80" as="geometry" />
+    </mxCell>
+    <mxCell id="48" value="&lt;b&gt;Jobs API&lt;/b&gt;&lt;br/&gt;&lt;font color='#4E342E' style='font-size:9px'&gt;⚙️ Databricks Jobs API&lt;/font&gt;&lt;br/&gt;&lt;font style='font-size:9px'&gt;Pipeline restart&lt;br/&gt;Parameter override&lt;br/&gt;Trigger upstream rerun&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;arcSize=6;align=center;verticalAlign=middle;fontSize=11;fontFamily=Helvetica;fillColor=#EFEBE9;strokeColor=#4E342E;fontColor=#4E342E;strokeWidth=2;bold=0;" vertex="1" parent="1">
+      <mxGeometry x="1230" y="196" width="180" height="80" as="geometry" />
+    </mxCell>
+    <mxCell id="49" value="&lt;b&gt;Lakehouse Monitoring&lt;/b&gt;&lt;br/&gt;&lt;font color='#4E342E' style='font-size:9px'&gt;📊 Databricks Lakehouse Monitoring&lt;/font&gt;&lt;br/&gt;&lt;font style='font-size:9px'&gt;EWMA cost baselines&lt;br/&gt;Token usage dashboards&lt;br/&gt;Spike alert &amp;lt; 5 min&lt;br/&gt;Weekly domain cost report&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;arcSize=6;align=center;verticalAlign=middle;fontSize=11;fontFamily=Helvetica;fillColor=#EFEBE9;strokeColor=#4E342E;fontColor=#4E342E;strokeWidth=2;bold=1;" vertex="1" parent="1">
+      <mxGeometry x="1230" y="306" width="180" height="100" as="geometry" />
+    </mxCell>
+    <mxCell id="50" value="route by severity" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;dashed=0;exitX=1.0;exitY=0.2;exitDx=0;exitDy=0;entryX=0.0;entryY=0.5;entryDx=0;entryDy=0;strokeColor=#4E342E;strokeWidth=2;fontColor=#4E342E;fontSize=9;fontFamily=Helvetica;fontStyle=2;startArrow=none;endArrow=block;endFill=1;" edge="1" source="36" target="47" parent="1">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="51" value="pipeline restart / override" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;dashed=0;exitX=1.0;exitY=0.5;exitDx=0;exitDy=0;entryX=0.0;entryY=0.5;entryDx=0;entryDy=0;strokeColor=#4E342E;strokeWidth=2;fontColor=#4E342E;fontSize=9;fontFamily=Helvetica;fontStyle=2;startArrow=none;endArrow=block;endFill=1;" edge="1" source="36" target="48" parent="1">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="52" value="metrics + EWMA" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;dashed=1;dashPattern=8 4;exitX=1.0;exitY=0.7;exitDx=0;exitDy=0;entryX=0.0;entryY=0.2;entryDx=0;entryDy=0;strokeColor=#4E342E;strokeWidth=2;fontColor=#4E342E;fontSize=9;fontFamily=Helvetica;fontStyle=2;startArrow=none;endArrow=block;endFill=1;" edge="1" source="34" target="49" parent="1">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="53" value="metrics + cost" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;dashed=1;dashPattern=8 4;exitX=1.0;exitY=0.7;exitDx=0;exitDy=0;entryX=0.0;entryY=0.5;entryDx=0;entryDy=0;strokeColor=#4E342E;strokeWidth=2;fontColor=#4E342E;fontSize=9;fontFamily=Helvetica;fontStyle=2;startArrow=none;endArrow=block;endFill=1;" edge="1" source="35" target="49" parent="1">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="54" value="metrics + audit" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;dashed=1;dashPattern=8 4;exitX=1.0;exitY=0.8;exitDx=0;exitDy=0;entryX=0.0;entryY=0.8;entryDx=0;entryDy=0;strokeColor=#4E342E;strokeWidth=2;fontColor=#4E342E;fontSize=9;fontFamily=Helvetica;fontStyle=2;startArrow=none;endArrow=block;endFill=1;" edge="1" source="36" target="49" parent="1">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="55" value="token usage / cost" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;dashed=1;dashPattern=8 4;exitX=1.0;exitY=0.7;exitDx=0;exitDy=0;entryX=0.0;entryY=0.1;entryDx=0;entryDy=0;strokeColor=#4E342E;strokeWidth=2;fontColor=#4E342E;fontSize=9;fontFamily=Helvetica;fontStyle=2;startArrow=none;endArrow=block;endFill=1;" edge="1" source="16" target="49" parent="1">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+  </root>
+</mxGraphModel>

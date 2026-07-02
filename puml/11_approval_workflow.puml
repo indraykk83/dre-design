@@ -12,7 +12,7 @@ skinparam sequence {
 }
 
 actor       "Rule Submitter\n(Data Engineer / BA)" as Submitter
-participant "Genie Space\n(DQ Assistant Chat)"             as Agent
+participant "DQ Chatbot App\n(LangGraph + Streamlit)"             as Agent
 participant "Approval Gateway"                      as Gateway
 database    "anomaly_check_config\n(Delta)"          as RuleDB
 database    "rule_audit_log\n(Delta)"                as AuditDB
@@ -22,7 +22,7 @@ note right of Notify
 end note
 actor       "Product Owner"                         as PO
 actor       "Tech Lead"                             as TL
-participant "Approval Dashboard\n(Genie Space - Owner view)" as Dashboard
+participant "Approval Dashboard\n(DQ Chatbot App - Owner view)" as Dashboard
 
 == [1] Rule Submission ==
 
@@ -60,7 +60,7 @@ else Submitter IS NOT the Owner
   deactivate Notify
 
   Gateway --> Agent   : [wait] Pending approval -- approvers notified
-  Agent --> Submitter : Rule submitted for approval\nApprovers notified: {po_email}\nSLA: 48 hours\nTrack status in Genie Space
+  Agent --> Submitter : Rule submitted for approval\nApprovers notified: {po_email}\nSLA: 48 hours\nTrack status in DQ Chatbot App
   deactivate Agent
 
   == [3] Approver Review ==
@@ -96,7 +96,7 @@ else Submitter IS NOT the Owner
     Dashboard -> AuditDB : LOG: REJECTED\n{approver, rule_id, reason, timestamp}
     Dashboard -> Notify  : Notify submitter -- REJECTED
     activate Notify
-    Notify -> Submitter : Rule rejected\nReason: {rejection_reason}\nRevise in Genie Space and resubmit
+    Notify -> Submitter : Rule rejected\nReason: {rejection_reason}\nRevise in DQ Chatbot App and resubmit
     deactivate Notify
 
   == [4C] Sent Back for Revision ==
@@ -108,7 +108,7 @@ else Submitter IS NOT the Owner
     Dashboard -> AuditDB : LOG: REVISION_REQUESTED\n{approver, rule_id, notes, timestamp}
     Dashboard -> Notify  : Notify submitter -- REVISION NEEDED
     activate Notify
-    Notify -> Submitter : Revision required\nFeedback: {revision_notes}\nEdit your rule in Genie Space
+    Notify -> Submitter : Revision required\nFeedback: {revision_notes}\nEdit your rule in DQ Chatbot App
     deactivate Notify
 
   end

@@ -42,7 +42,7 @@ database    "rule_audit_log\n(Delta)"                            as AuditDB
 database    "data_catalog\n(Unity Catalog)"                      as Catalog
 participant "Notification\nDispatcher"                           as Notify
 actor       "Rule Owner /\nTech Lead"                            as Owner
-participant "Genie Space\n(DQ Assistant Chat)"                   as Genie
+participant "DQ Chatbot App\n(LangGraph + Streamlit)"                   as Genie
 
 == [SCH-0] Schema Change Detection ==
 

@@ -1,6 +1,6 @@
 @startuml 26_Databricks_Native_Architecture
 !theme plain
-title DRE 3D Framework -- Databricks-Native Architecture\nDatabricks Apps + LangGraph + Mosaic AI + AI Search + Workflows
+title DRE 3D Framework -- Databricks-Native Architecture\nDatabricks Apps + LangGraph + Model Serving Endpoint + AI Search + Workflows
 
 skinparam backgroundColor #FAFAFA
 skinparam defaultFontSize 10
@@ -54,10 +54,10 @@ rectangle "Agent Orchestration Layer  (Databricks App Backend)" as ORCHESTRATION
 }
 
 together {
-  rectangle "AI Inference Layer  (Mosaic AI)" as AI #FFF8E1 {
-    rectangle "Model Serving Endpoint\n(Mosaic AI / DBRX / BYOM)\n------------------------\nIntent classification\nSQL generation\nDiagnosis reasoning\nSummarization\nRemediation recommendation" as LLMEndpoint #FFECB3
+  rectangle "AI Inference Layer  (Model Serving Endpoint)" as AI #FFF8E1 {
+    rectangle "Model Serving Endpoint\n(DBRX / BYOM - self-hosted)\n------------------------\nIntent classification\nSQL generation\nDiagnosis reasoning\nSummarization\nRemediation recommendation" as LLMEndpoint #FFECB3
     
-    rectangle "Embedding Endpoint\n(BGE-M3 / Mosaic AI)\n------------------------\nQuery embedding\nDocument embedding\nChunk embedding" as EmbedEndpoint #FFECB3
+    rectangle "Embedding Endpoint\n(BGE-M3 - self-hosted)\n------------------------\nQuery embedding\nDocument embedding\nChunk embedding" as EmbedEndpoint #FFECB3
   }
 }
 

@@ -41,7 +41,7 @@ skinparam note {
 title <b>3D Data Quality Framework  \u00b7  DQ Rule User Journey</b>\n<size:12>Discover  \u2192  Create  \u2192  Validate  \u2192  Review  \u2192  Approve  \u2192  Deploy  \u2192  Monitor  \u2192  Improve</size>
 
 |#BBDEFB| User |
-|#C8E6C9| Genie Space |
+|#C8E6C9| DQ Chatbot App |
 |#FFE082| DQ Backend App |
 |#F8BBD0| Approval Gateway |
 |#D1C4E9| Platform (Automated) |
@@ -63,17 +63,17 @@ start
 |User|
 #1565C0:<color:#FFFFFF><b>  \u2460 DISCOVER  \u00b7  Explore & Ask Questions  </b></color>;
 
-:Open **Genie Space**\n//DQ Assistant chat in Databricks//;
+:Open **DQ Chatbot App**\n//DQ Assistant chat in Databricks//;
 note right #BBDEFB: Authenticated via Databricks SSO\nWorkspace identity auto-applied
 
-|Genie Space|
+|DQ Chatbot App|
 :Greet user -- present options:\n  \u2022 Ask Q&A about data quality\n  \u2022 Propose a new DQ rule\n  \u2022 Browse rules + coverage gaps\n  \u2022 Check execution results / trends\n  \u2022 Manage exceptions;
 
 repeat
   |User|
   :Ask a natural language question:\n  //"DRRI score for gold.customer?"//\n  //"Which jobs failed last night?"//\n  //"Anomalies for adiClub orders this week"//\n  //"Top 5 noisiest rules by false positives"//;
 
-  |Genie Space|
+  |DQ Chatbot App|
   :Classify intent = **READ**\nGenerate **SELECT** SQL -- read-only via Unity Catalog;
   note right #C8E6C9
     Queries live Delta tables:
@@ -89,7 +89,7 @@ repeat
   :Read answer \u00b7 drill down\n//filter by market, brand, date, column//;
 repeat while (More questions?) is (Yes) not (No -- done)
 
-|Genie Space|
+|DQ Chatbot App|
 :Summarise coverage gaps\nand recommended next checks;
 note right #C8E6C9: Any answer can pivot directly\ninto **CREATE** to close a gap
 
@@ -102,7 +102,7 @@ note right #C8E6C9: Any answer can pivot directly\ninto **CREATE** to close a ga
 
 :Type rule request in natural language\n//"Create a null check for customer_email in gold.customer"//;
 
-|Genie Space|
+|DQ Chatbot App|
 :Classify intent = **WRITE**\nInvoke DQ Backend App via UC tool;
 
 |DQ Backend App|
@@ -147,7 +147,7 @@ endif
 :\u2714 **SQL Validator**\n//Syntax \u00b7 Schema \u00b7 Cost estimate \u00b7 Partition alignment//;
 :\u26A0 **Duplicate Detector**\n//Similarity vs active rules in anomaly_check_config//;
 
-|Genie Space|
+|DQ Chatbot App|
 :Present validation results;
 
 |User|
@@ -162,7 +162,7 @@ else (No -- looks good)
 endif
 
 if (Duplicate found?) then (Yes)
-  |Genie Space|
+  |DQ Chatbot App|
   :Show similar rule(s) with similarity %;
   |User|
   :Choose: reuse \u00b7 modify \u00b7 proceed anyway;
@@ -179,7 +179,7 @@ endif
 :Calculate **Trend Score**\nfrom 30-day execution history for table/column;
 note right #FFF3E0: No history? \u2192 "Insufficient data"\nRule creation still permitted
 
-|Genie Space|
+|DQ Chatbot App|
 :Display **Trend Score**:\n  PASS: {pass_pct}%  /  FAIL: {fail_pct}%\n  Confidence: {High / Medium / Low};
 note right #C8E6C9: Approver sees the same score\non the Approval Dashboard
 
@@ -210,7 +210,7 @@ else (No -- peer review needed)
   :Notify PO + Tech Lead\nEmail + Jira ticket \u00b7 48 h SLA;
 
   |User|
-  :Submitted -- monitor status in Genie Space;
+  :Submitted -- monitor status in DQ Chatbot App;
 
   |Approval Gateway|
   :PO / Tech Lead reviews:\n  rule definition \u00b7 trend score \u00b7 blast radius;
@@ -266,7 +266,7 @@ note right #BBDEFB
   ACTIVE \u2192 DEPRECATED \u2192 ARCHIVED
 end note
 
-|Genie Space|
+|DQ Chatbot App|
 :Surface tuning recommendations:\n//"Which rules are noisy or stale?"//;
 
 |DQ Backend App|
