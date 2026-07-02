@@ -83,6 +83,36 @@
             margin-bottom: 4rem;
         }
         
+        .intro-section {
+            background: white;
+            padding: 2.5rem;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin-bottom: 3rem;
+        }
+        
+        .intro-section h2 {
+            font-size: 2rem;
+            color: #667eea;
+            margin-bottom: 1rem;
+        }
+        
+        .intro-section p {
+            font-size: 1.1rem;
+            margin-bottom: 1rem;
+            color: #555;
+        }
+        
+        .intro-section ul {
+            margin-left: 2rem;
+            margin-bottom: 1rem;
+        }
+        
+        .intro-section li {
+            margin-bottom: 0.5rem;
+            color: #555;
+        }
+        
         .section-header {
             background: white;
             padding: 2rem;
@@ -220,8 +250,8 @@
     
     <nav>
         <ul>
-            <li><a href="#intro">From Problem to Solution</a></li>
-            <li><a href="#selfservice">No Coding Required</a></li>
+            <li><a href="#intro">DRE 3D Framework</a></li>
+            <li><a href="#selfservice">The Game Changer</a></li>
             <li><a href="#architecture">The Three Layers</a></li>
             <li><a href="#c4">System Structure</a></li>
             <li><a href="#validation">10-Stage Validation Pipeline</a></li>
@@ -234,31 +264,44 @@
     </nav>
     
     <div class="container">
+        <section id="problem" class="section">
+            <div class="intro-section">
+                <h2>🎯 The Problem We're Solving</h2>
+                <p>Data teams spend 40-60% of their time fighting fires: investigating pipeline failures, tracking down data quality issues, and manually writing validation rules. This reactive approach leads to delayed detection, manual diagnosis, repetitive work, and inconsistent quality.</p>
+                <ul style="margin-left: 2rem; margin-top: 1rem;">
+                    <li><strong>Delayed detection</strong>: Issues are found downstream, after business impact</li>
+                    <li><strong>Manual diagnosis</strong>: Engineers spend hours digging through logs and metrics</li>
+                    <li><strong>Repetitive work</strong>: Writing similar validation rules over and over</li>
+                    <li><strong>Inconsistent quality</strong>: Each team has different standards and tools</li>
+                </ul>
+            </div>
+        </section>
+
         <section id="intro" class="section">
             <div class="section-header">
-                <h2>📖 The Story: From Problem to Solution</h2>
-                <p>Start here to understand what DRE 3D is and why it exists</p>
+                <h2>📖 The Solution: DRE 3D Framework</h2>
+                <p>DRE 3D is a self-driving data reliability engine that combines AI agents with Databricks platform to automate the entire data quality lifecycle. Built 100% on Databricks native components.</p>
             </div>
             
             <div class="diagram-grid">
                 <div class="diagram-card">
-                    <h3>System Overview</h3>
-                    <p class="desc">The big picture: How DRE 3D fits into your data ecosystem</p>
-                    <img src="png/00_system_overview.png" alt="System Overview" loading="lazy">
+                    <h3>System Overview - Start Here</h3>
+                    <p class="desc">The big picture: How DRE 3D fits into your data ecosystem. The system sits between your data sources and consumers, monitoring pipelines and catching issues before they propagate.</p>
+                    <img src="./png/00_system_overview.png" alt="System Overview - Start Here" loading="lazy" onerror="this.src='https://via.placeholder.com/800x600?text=Image+Loading...';this.onerror=null;">
                     <div class="diagram-links">
-                        <a href="00_system_overview.puml" target="_blank">📄 PUML Source</a>
-                        <a href="png/00_system_overview.png" target="_blank">🖼️ PNG</a>
-                        <a href="svg/00_system_overview.svg" target="_blank">📐 SVG</a>
+                        <a href="./00_system_overview.puml" target="_blank">📄 PUML Source</a>
+                        <a href="https://raw.githubusercontent.com/indraykk83/dre-design/main/puml/png/00_system_overview.png" target="_blank">🖼️ PNG</a>
+                        <a href="https://raw.githubusercontent.com/indraykk83/dre-design/main/puml/svg/00_system_overview.svg" target="_blank">📐 SVG</a>
                     </div>
                 </div>
                 <div class="diagram-card">
                     <h3>Databricks-Native Architecture</h3>
-                    <p class="desc">Built 100% on Databricks: Apps, Workflows, Unity Catalog, Mosaic AI</p>
-                    <img src="png/26_databricks_native_architecture.png" alt="Databricks-Native Architecture" loading="lazy">
+                    <p class="desc">All components mapped to Databricks services: Apps, Workflows, Unity Catalog, Mosaic AI. This is the corrected architecture using Databricks Apps (not Genie Space) for full read-write capability.</p>
+                    <img src="./png/26_databricks_native_architecture.png" alt="Databricks-Native Architecture" loading="lazy" onerror="this.src='https://via.placeholder.com/800x600?text=Image+Loading...';this.onerror=null;">
                     <div class="diagram-links">
-                        <a href="26_databricks_native_architecture.puml" target="_blank">📄 PUML Source</a>
-                        <a href="png/26_databricks_native_architecture.png" target="_blank">🖼️ PNG</a>
-                        <a href="svg/26_databricks_native_architecture.svg" target="_blank">📐 SVG</a>
+                        <a href="./26_databricks_native_architecture.puml" target="_blank">📄 PUML Source</a>
+                        <a href="https://raw.githubusercontent.com/indraykk83/dre-design/main/puml/png/26_databricks_native_architecture.png" target="_blank">🖼️ PNG</a>
+                        <a href="https://raw.githubusercontent.com/indraykk83/dre-design/main/puml/svg/26_databricks_native_architecture.svg" target="_blank">📐 SVG</a>
                     </div>
                 </div>
             </div>
@@ -266,59 +309,59 @@
 
         <section id="selfservice" class="section">
             <div class="section-header">
-                <h2>🤖 Self-Service Rule Portal: No Coding Required</h2>
-                <p>The game-changer: Business analysts can create data quality rules via conversational chatbot</p>
+                <h2>🤖 Self-Service Rule Portal: The Game Changer</h2>
+                <p>💡 KEY INNOVATION: Business analysts and data engineers can define rules through a conversational chatbot interface without writing code. The system validates rules through 10 layers (security, governance, duplicate detection, SQL validation) before deploying them to production where D1 Detection Agent executes them continuously.</p>
             </div>
             
             <div class="diagram-grid">
                 <div class="diagram-card">
                     <h3>Rule Capture (Technical View)</h3>
-                    <p class="desc">How the chatbot translates natural language to SQL via LLM</p>
-                    <img src="png/01_tech_rule_capture.png" alt="Rule Capture (Technical View)" loading="lazy">
+                    <p class="desc">How the chatbot translates natural language to SQL via LLM. Example: 'Alert me if customer_id is null' → System generates SQL + validation logic</p>
+                    <img src="./png/01_tech_rule_capture.png" alt="Rule Capture (Technical View)" loading="lazy" onerror="this.src='https://via.placeholder.com/800x600?text=Image+Loading...';this.onerror=null;">
                     <div class="diagram-links">
-                        <a href="01_tech_rule_capture.puml" target="_blank">📄 PUML Source</a>
-                        <a href="png/01_tech_rule_capture.png" target="_blank">🖼️ PNG</a>
-                        <a href="svg/01_tech_rule_capture.svg" target="_blank">📐 SVG</a>
+                        <a href="./01_tech_rule_capture.puml" target="_blank">📄 PUML Source</a>
+                        <a href="https://raw.githubusercontent.com/indraykk83/dre-design/main/puml/png/01_tech_rule_capture.png" target="_blank">🖼️ PNG</a>
+                        <a href="https://raw.githubusercontent.com/indraykk83/dre-design/main/puml/svg/01_tech_rule_capture.svg" target="_blank">📐 SVG</a>
                     </div>
                 </div>
                 <div class="diagram-card">
                     <h3>Rule Authoring Data Flow</h3>
-                    <p class="desc">End-to-end data flow: User input → LLM → Validation → Deployment</p>
-                    <img src="png/24_rule_authoring_data_flow.png" alt="Rule Authoring Data Flow" loading="lazy">
+                    <p class="desc">End-to-end data flow: User input → LLM translation → Multi-stage validation → Approval → Deployment to D1</p>
+                    <img src="./png/24_rule_authoring_data_flow.png" alt="Rule Authoring Data Flow" loading="lazy" onerror="this.src='https://via.placeholder.com/800x600?text=Image+Loading...';this.onerror=null;">
                     <div class="diagram-links">
-                        <a href="24_rule_authoring_data_flow.puml" target="_blank">📄 PUML Source</a>
-                        <a href="png/24_rule_authoring_data_flow.png" target="_blank">🖼️ PNG</a>
-                        <a href="svg/24_rule_authoring_data_flow.svg" target="_blank">📐 SVG</a>
+                        <a href="./24_rule_authoring_data_flow.puml" target="_blank">📄 PUML Source</a>
+                        <a href="https://raw.githubusercontent.com/indraykk83/dre-design/main/puml/png/24_rule_authoring_data_flow.png" target="_blank">🖼️ PNG</a>
+                        <a href="https://raw.githubusercontent.com/indraykk83/dre-design/main/puml/svg/24_rule_authoring_data_flow.svg" target="_blank">📐 SVG</a>
                     </div>
                 </div>
                 <div class="diagram-card">
                     <h3>User Journey</h3>
-                    <p class="desc">Step-by-step: What users see when creating rules</p>
-                    <img src="png/08_user_journey.png" alt="User Journey" loading="lazy">
+                    <p class="desc">Step-by-step: What users see when creating rules. Sarah (data analyst, no SQL knowledge) opens the portal and types in plain English.</p>
+                    <img src="./png/08_user_journey.png" alt="User Journey" loading="lazy" onerror="this.src='https://via.placeholder.com/800x600?text=Image+Loading...';this.onerror=null;">
                     <div class="diagram-links">
-                        <a href="08_user_journey.puml" target="_blank">📄 PUML Source</a>
-                        <a href="png/08_user_journey.png" target="_blank">🖼️ PNG</a>
-                        <a href="svg/08_user_journey.svg" target="_blank">📐 SVG</a>
+                        <a href="./08_user_journey.puml" target="_blank">📄 PUML Source</a>
+                        <a href="https://raw.githubusercontent.com/indraykk83/dre-design/main/puml/png/08_user_journey.png" target="_blank">🖼️ PNG</a>
+                        <a href="https://raw.githubusercontent.com/indraykk83/dre-design/main/puml/svg/08_user_journey.svg" target="_blank">📐 SVG</a>
                     </div>
                 </div>
                 <div class="diagram-card">
                     <h3>Rule Lifecycle</h3>
-                    <p class="desc">From creation → approval → deployment → execution → retirement</p>
-                    <img src="png/09_rule_lifecycle.png" alt="Rule Lifecycle" loading="lazy">
+                    <p class="desc">From creation → approval → deployment → execution (by D1) → monitoring → retirement. Complete rule governance.</p>
+                    <img src="./png/09_rule_lifecycle.png" alt="Rule Lifecycle" loading="lazy" onerror="this.src='https://via.placeholder.com/800x600?text=Image+Loading...';this.onerror=null;">
                     <div class="diagram-links">
-                        <a href="09_rule_lifecycle.puml" target="_blank">📄 PUML Source</a>
-                        <a href="png/09_rule_lifecycle.png" target="_blank">🖼️ PNG</a>
-                        <a href="svg/09_rule_lifecycle.svg" target="_blank">📐 SVG</a>
+                        <a href="./09_rule_lifecycle.puml" target="_blank">📄 PUML Source</a>
+                        <a href="https://raw.githubusercontent.com/indraykk83/dre-design/main/puml/png/09_rule_lifecycle.png" target="_blank">🖼️ PNG</a>
+                        <a href="https://raw.githubusercontent.com/indraykk83/dre-design/main/puml/svg/09_rule_lifecycle.svg" target="_blank">📐 SVG</a>
                     </div>
                 </div>
                 <div class="diagram-card">
                     <h3>Chatbot Memory & Session Management</h3>
-                    <p class="desc">How the chatbot remembers context across conversations</p>
-                    <img src="png/37_chatbot_memory_session.png" alt="Chatbot Memory & Session Management" loading="lazy">
+                    <p class="desc">How the chatbot remembers context across conversations for better UX</p>
+                    <img src="./png/37_chatbot_memory_session.png" alt="Chatbot Memory & Session Management" loading="lazy" onerror="this.src='https://via.placeholder.com/800x600?text=Image+Loading...';this.onerror=null;">
                     <div class="diagram-links">
-                        <a href="37_chatbot_memory_session.puml" target="_blank">📄 PUML Source</a>
-                        <a href="png/37_chatbot_memory_session.png" target="_blank">🖼️ PNG</a>
-                        <a href="svg/37_chatbot_memory_session.svg" target="_blank">📐 SVG</a>
+                        <a href="./37_chatbot_memory_session.puml" target="_blank">📄 PUML Source</a>
+                        <a href="https://raw.githubusercontent.com/indraykk83/dre-design/main/puml/png/37_chatbot_memory_session.png" target="_blank">🖼️ PNG</a>
+                        <a href="https://raw.githubusercontent.com/indraykk83/dre-design/main/puml/svg/37_chatbot_memory_session.svg" target="_blank">📐 SVG</a>
                     </div>
                 </div>
             </div>
@@ -326,59 +369,59 @@
 
         <section id="architecture" class="section">
             <div class="section-header">
-                <h2>🏗️ Architecture Deep Dive: The Three Layers</h2>
-                <p>Frontend/Orchestration → RAG/Knowledge → Execution (D1/D2/D3)</p>
+                <h2>🏗️ How It Works: The Three Layers</h2>
+                <p>The system is organized into three layers, each with clear responsibilities. Think of it like a car: the dashboard (frontend), the engine (RAG/AI), and the wheels (execution). Frontend/Orchestration → RAG/Knowledge → Execution (D1/D2/D3)</p>
             </div>
             
             <div class="diagram-grid">
                 <div class="diagram-card">
                     <h3>Layer 1: Frontend & Orchestration</h3>
-                    <p class="desc">Databricks Apps + LangGraph multi-agent orchestration</p>
-                    <img src="png/27_frontend_orchestration_layer.png" alt="Layer 1: Frontend & Orchestration" loading="lazy">
+                    <p class="desc">Users interact with Databricks Apps to write rules or ask questions. LangGraph orchestrates multi-agent conversations (Parser → Validator → Security → SQL Generator → Approval)</p>
+                    <img src="./png/27_frontend_orchestration_layer.png" alt="Layer 1: Frontend & Orchestration" loading="lazy" onerror="this.src='https://via.placeholder.com/800x600?text=Image+Loading...';this.onerror=null;">
                     <div class="diagram-links">
-                        <a href="27_frontend_orchestration_layer.puml" target="_blank">📄 PUML Source</a>
-                        <a href="png/27_frontend_orchestration_layer.png" target="_blank">🖼️ PNG</a>
-                        <a href="svg/27_frontend_orchestration_layer.svg" target="_blank">📐 SVG</a>
+                        <a href="./27_frontend_orchestration_layer.puml" target="_blank">📄 PUML Source</a>
+                        <a href="https://raw.githubusercontent.com/indraykk83/dre-design/main/puml/png/27_frontend_orchestration_layer.png" target="_blank">🖼️ PNG</a>
+                        <a href="https://raw.githubusercontent.com/indraykk83/dre-design/main/puml/svg/27_frontend_orchestration_layer.svg" target="_blank">📐 SVG</a>
                     </div>
                 </div>
                 <div class="diagram-card">
                     <h3>Layer 2: RAG Knowledge Base</h3>
-                    <p class="desc">UC Volumes → Delta chunks → AI Search with CRAG confidence gating</p>
-                    <img src="png/28_rag_knowledge_base_layer.png" alt="Layer 2: RAG Knowledge Base" loading="lazy">
+                    <p class="desc">AI agents retrieve relevant context from documentation, past incidents, and logs. Uses UC Volumes for raw docs, Delta for chunked data, and AI Search for semantic retrieval with CRAG confidence gating.</p>
+                    <img src="./png/28_rag_knowledge_base_layer.png" alt="Layer 2: RAG Knowledge Base" loading="lazy" onerror="this.src='https://via.placeholder.com/800x600?text=Image+Loading...';this.onerror=null;">
                     <div class="diagram-links">
-                        <a href="28_rag_knowledge_base_layer.puml" target="_blank">📄 PUML Source</a>
-                        <a href="png/28_rag_knowledge_base_layer.png" target="_blank">🖼️ PNG</a>
-                        <a href="svg/28_rag_knowledge_base_layer.svg" target="_blank">📐 SVG</a>
+                        <a href="./28_rag_knowledge_base_layer.puml" target="_blank">📄 PUML Source</a>
+                        <a href="https://raw.githubusercontent.com/indraykk83/dre-design/main/puml/png/28_rag_knowledge_base_layer.png" target="_blank">🖼️ PNG</a>
+                        <a href="https://raw.githubusercontent.com/indraykk83/dre-design/main/puml/svg/28_rag_knowledge_base_layer.svg" target="_blank">📐 SVG</a>
                     </div>
                 </div>
                 <div class="diagram-card">
                     <h3>Layer 3: Execution (D1/D2/D3)</h3>
-                    <p class="desc">Detection → Diagnosis → Deflection workflows</p>
-                    <img src="png/29_execution_d1_d2_d3_layer.png" alt="Layer 3: Execution (D1/D2/D3)" loading="lazy">
+                    <p class="desc">Databricks Workflows run scheduled detection, diagnosis, and deflection jobs. D1 detects anomalies → D2 diagnoses root cause → D3 generates fixes and creates tickets.</p>
+                    <img src="./png/29_execution_d1_d2_d3_layer.png" alt="Layer 3: Execution (D1/D2/D3)" loading="lazy" onerror="this.src='https://via.placeholder.com/800x600?text=Image+Loading...';this.onerror=null;">
                     <div class="diagram-links">
-                        <a href="29_execution_d1_d2_d3_layer.puml" target="_blank">📄 PUML Source</a>
-                        <a href="png/29_execution_d1_d2_d3_layer.png" target="_blank">🖼️ PNG</a>
-                        <a href="svg/29_execution_d1_d2_d3_layer.svg" target="_blank">📐 SVG</a>
+                        <a href="./29_execution_d1_d2_d3_layer.puml" target="_blank">📄 PUML Source</a>
+                        <a href="https://raw.githubusercontent.com/indraykk83/dre-design/main/puml/png/29_execution_d1_d2_d3_layer.png" target="_blank">🖼️ PNG</a>
+                        <a href="https://raw.githubusercontent.com/indraykk83/dre-design/main/puml/svg/29_execution_d1_d2_d3_layer.svg" target="_blank">📐 SVG</a>
                     </div>
                 </div>
                 <div class="diagram-card">
                     <h3>Multi-Agent Architecture</h3>
-                    <p class="desc">How agents communicate via LangGraph shared state</p>
-                    <img src="png/20_multiagent_architecture.png" alt="Multi-Agent Architecture" loading="lazy">
+                    <p class="desc">How agents communicate via LangGraph shared state (not peer-to-peer)</p>
+                    <img src="./png/20_multiagent_architecture.png" alt="Multi-Agent Architecture" loading="lazy" onerror="this.src='https://via.placeholder.com/800x600?text=Image+Loading...';this.onerror=null;">
                     <div class="diagram-links">
-                        <a href="20_multiagent_architecture.puml" target="_blank">📄 PUML Source</a>
-                        <a href="png/20_multiagent_architecture.png" target="_blank">🖼️ PNG</a>
-                        <a href="svg/20_multiagent_architecture.svg" target="_blank">📐 SVG</a>
+                        <a href="./20_multiagent_architecture.puml" target="_blank">📄 PUML Source</a>
+                        <a href="https://raw.githubusercontent.com/indraykk83/dre-design/main/puml/png/20_multiagent_architecture.png" target="_blank">🖼️ PNG</a>
+                        <a href="https://raw.githubusercontent.com/indraykk83/dre-design/main/puml/svg/20_multiagent_architecture.svg" target="_blank">📐 SVG</a>
                     </div>
                 </div>
                 <div class="diagram-card">
                     <h3>Domain Expert Agents</h3>
-                    <p class="desc">Specialized agents: Schema Expert, Query Optimizer, PII Guardian, etc.</p>
-                    <img src="png/18_domain_expert_agents.png" alt="Domain Expert Agents" loading="lazy">
+                    <p class="desc">Specialized agents: Schema Expert, Query Optimizer, PII Guardian, Duplicate Detector, etc.</p>
+                    <img src="./png/18_domain_expert_agents.png" alt="Domain Expert Agents" loading="lazy" onerror="this.src='https://via.placeholder.com/800x600?text=Image+Loading...';this.onerror=null;">
                     <div class="diagram-links">
-                        <a href="18_domain_expert_agents.puml" target="_blank">📄 PUML Source</a>
-                        <a href="png/18_domain_expert_agents.png" target="_blank">🖼️ PNG</a>
-                        <a href="svg/18_domain_expert_agents.svg" target="_blank">📐 SVG</a>
+                        <a href="./18_domain_expert_agents.puml" target="_blank">📄 PUML Source</a>
+                        <a href="https://raw.githubusercontent.com/indraykk83/dre-design/main/puml/png/18_domain_expert_agents.png" target="_blank">🖼️ PNG</a>
+                        <a href="https://raw.githubusercontent.com/indraykk83/dre-design/main/puml/svg/18_domain_expert_agents.svg" target="_blank">📐 SVG</a>
                     </div>
                 </div>
             </div>
@@ -394,41 +437,41 @@
                 <div class="diagram-card">
                     <h3>C4 Context</h3>
                     <p class="desc">External systems: Users, Jira, GitHub, Databricks, ITSM</p>
-                    <img src="png/04_c4_context.png" alt="C4 Context" loading="lazy">
+                    <img src="./png/04_c4_context.png" alt="C4 Context" loading="lazy" onerror="this.src='https://via.placeholder.com/800x600?text=Image+Loading...';this.onerror=null;">
                     <div class="diagram-links">
-                        <a href="04_c4_context.puml" target="_blank">📄 PUML Source</a>
-                        <a href="png/04_c4_context.png" target="_blank">🖼️ PNG</a>
-                        <a href="svg/04_c4_context.svg" target="_blank">📐 SVG</a>
+                        <a href="./04_c4_context.puml" target="_blank">📄 PUML Source</a>
+                        <a href="https://raw.githubusercontent.com/indraykk83/dre-design/main/puml/png/04_c4_context.png" target="_blank">🖼️ PNG</a>
+                        <a href="https://raw.githubusercontent.com/indraykk83/dre-design/main/puml/svg/04_c4_context.svg" target="_blank">📐 SVG</a>
                     </div>
                 </div>
                 <div class="diagram-card">
                     <h3>C4 Container</h3>
                     <p class="desc">Major containers: Frontend, Orchestration, RAG, Workflows</p>
-                    <img src="png/05_c4_container.png" alt="C4 Container" loading="lazy">
+                    <img src="./png/05_c4_container.png" alt="C4 Container" loading="lazy" onerror="this.src='https://via.placeholder.com/800x600?text=Image+Loading...';this.onerror=null;">
                     <div class="diagram-links">
-                        <a href="05_c4_container.puml" target="_blank">📄 PUML Source</a>
-                        <a href="png/05_c4_container.png" target="_blank">🖼️ PNG</a>
-                        <a href="svg/05_c4_container.svg" target="_blank">📐 SVG</a>
+                        <a href="./05_c4_container.puml" target="_blank">📄 PUML Source</a>
+                        <a href="https://raw.githubusercontent.com/indraykk83/dre-design/main/puml/png/05_c4_container.png" target="_blank">🖼️ PNG</a>
+                        <a href="https://raw.githubusercontent.com/indraykk83/dre-design/main/puml/svg/05_c4_container.svg" target="_blank">📐 SVG</a>
                     </div>
                 </div>
                 <div class="diagram-card">
                     <h3>C4 Component</h3>
                     <p class="desc">Internal components: Agents, Validators, Executors</p>
-                    <img src="png/06_c4_component.png" alt="C4 Component" loading="lazy">
+                    <img src="./png/06_c4_component.png" alt="C4 Component" loading="lazy" onerror="this.src='https://via.placeholder.com/800x600?text=Image+Loading...';this.onerror=null;">
                     <div class="diagram-links">
-                        <a href="06_c4_component.puml" target="_blank">📄 PUML Source</a>
-                        <a href="png/06_c4_component.png" target="_blank">🖼️ PNG</a>
-                        <a href="svg/06_c4_component.svg" target="_blank">📐 SVG</a>
+                        <a href="./06_c4_component.puml" target="_blank">📄 PUML Source</a>
+                        <a href="https://raw.githubusercontent.com/indraykk83/dre-design/main/puml/png/06_c4_component.png" target="_blank">🖼️ PNG</a>
+                        <a href="https://raw.githubusercontent.com/indraykk83/dre-design/main/puml/svg/06_c4_component.svg" target="_blank">📐 SVG</a>
                     </div>
                 </div>
                 <div class="diagram-card">
                     <h3>C4 Code</h3>
                     <p class="desc">Code-level structure: Classes and modules</p>
-                    <img src="png/07_c4_code.png" alt="C4 Code" loading="lazy">
+                    <img src="./png/07_c4_code.png" alt="C4 Code" loading="lazy" onerror="this.src='https://via.placeholder.com/800x600?text=Image+Loading...';this.onerror=null;">
                     <div class="diagram-links">
-                        <a href="07_c4_code.puml" target="_blank">📄 PUML Source</a>
-                        <a href="png/07_c4_code.png" target="_blank">🖼️ PNG</a>
-                        <a href="svg/07_c4_code.svg" target="_blank">📐 SVG</a>
+                        <a href="./07_c4_code.puml" target="_blank">📄 PUML Source</a>
+                        <a href="https://raw.githubusercontent.com/indraykk83/dre-design/main/puml/png/07_c4_code.png" target="_blank">🖼️ PNG</a>
+                        <a href="https://raw.githubusercontent.com/indraykk83/dre-design/main/puml/svg/07_c4_code.svg" target="_blank">📐 SVG</a>
                     </div>
                 </div>
             </div>
@@ -444,41 +487,41 @@
                 <div class="diagram-card">
                     <h3>RAG Validation Pipeline (Sequence)</h3>
                     <p class="desc">10 stages: Query Optimization → CAG → CRAG → Security → Governance → Duplicate → SQL Validation → Approval</p>
-                    <img src="png/30_rag_validation_pipeline.png" alt="RAG Validation Pipeline (Sequence)" loading="lazy">
+                    <img src="./png/30_rag_validation_pipeline.png" alt="RAG Validation Pipeline (Sequence)" loading="lazy" onerror="this.src='https://via.placeholder.com/800x600?text=Image+Loading...';this.onerror=null;">
                     <div class="diagram-links">
-                        <a href="30_rag_validation_pipeline.puml" target="_blank">📄 PUML Source</a>
-                        <a href="png/30_rag_validation_pipeline.png" target="_blank">🖼️ PNG</a>
-                        <a href="svg/30_rag_validation_pipeline.svg" target="_blank">📐 SVG</a>
+                        <a href="./30_rag_validation_pipeline.puml" target="_blank">📄 PUML Source</a>
+                        <a href="https://raw.githubusercontent.com/indraykk83/dre-design/main/puml/png/30_rag_validation_pipeline.png" target="_blank">🖼️ PNG</a>
+                        <a href="https://raw.githubusercontent.com/indraykk83/dre-design/main/puml/svg/30_rag_validation_pipeline.svg" target="_blank">📐 SVG</a>
                     </div>
                 </div>
                 <div class="diagram-card">
                     <h3>Validation Layers (Component View)</h3>
                     <p class="desc">How CAG, CRAG, and Rule-based validators work together</p>
-                    <img src="png/31_validation_layers_architecture.png" alt="Validation Layers (Component View)" loading="lazy">
+                    <img src="./png/31_validation_layers_architecture.png" alt="Validation Layers (Component View)" loading="lazy" onerror="this.src='https://via.placeholder.com/800x600?text=Image+Loading...';this.onerror=null;">
                     <div class="diagram-links">
-                        <a href="31_validation_layers_architecture.puml" target="_blank">📄 PUML Source</a>
-                        <a href="png/31_validation_layers_architecture.png" target="_blank">🖼️ PNG</a>
-                        <a href="svg/31_validation_layers_architecture.svg" target="_blank">📐 SVG</a>
+                        <a href="./31_validation_layers_architecture.puml" target="_blank">📄 PUML Source</a>
+                        <a href="https://raw.githubusercontent.com/indraykk83/dre-design/main/puml/png/31_validation_layers_architecture.png" target="_blank">🖼️ PNG</a>
+                        <a href="https://raw.githubusercontent.com/indraykk83/dre-design/main/puml/svg/31_validation_layers_architecture.svg" target="_blank">📐 SVG</a>
                     </div>
                 </div>
                 <div class="diagram-card">
                     <h3>CRAG Retrieval Strategy</h3>
                     <p class="desc">Confidence-gated RAG: HIGH (≥0.72) → MEDIUM (0.50-0.72) → LOW (<0.50)</p>
-                    <img src="png/21_crag_retrieval_strategy.png" alt="CRAG Retrieval Strategy" loading="lazy">
+                    <img src="./png/21_crag_retrieval_strategy.png" alt="CRAG Retrieval Strategy" loading="lazy" onerror="this.src='https://via.placeholder.com/800x600?text=Image+Loading...';this.onerror=null;">
                     <div class="diagram-links">
-                        <a href="21_crag_retrieval_strategy.puml" target="_blank">📄 PUML Source</a>
-                        <a href="png/21_crag_retrieval_strategy.png" target="_blank">🖼️ PNG</a>
-                        <a href="svg/21_crag_retrieval_strategy.svg" target="_blank">📐 SVG</a>
+                        <a href="./21_crag_retrieval_strategy.puml" target="_blank">📄 PUML Source</a>
+                        <a href="https://raw.githubusercontent.com/indraykk83/dre-design/main/puml/png/21_crag_retrieval_strategy.png" target="_blank">🖼️ PNG</a>
+                        <a href="https://raw.githubusercontent.com/indraykk83/dre-design/main/puml/svg/21_crag_retrieval_strategy.svg" target="_blank">📐 SVG</a>
                     </div>
                 </div>
                 <div class="diagram-card">
                     <h3>Approval Workflow</h3>
                     <p class="desc">Rule routing: Low-risk → Data Steward, High-risk → Data Owner + Security</p>
-                    <img src="png/11_approval_workflow.png" alt="Approval Workflow" loading="lazy">
+                    <img src="./png/11_approval_workflow.png" alt="Approval Workflow" loading="lazy" onerror="this.src='https://via.placeholder.com/800x600?text=Image+Loading...';this.onerror=null;">
                     <div class="diagram-links">
-                        <a href="11_approval_workflow.puml" target="_blank">📄 PUML Source</a>
-                        <a href="png/11_approval_workflow.png" target="_blank">🖼️ PNG</a>
-                        <a href="svg/11_approval_workflow.svg" target="_blank">📐 SVG</a>
+                        <a href="./11_approval_workflow.puml" target="_blank">📄 PUML Source</a>
+                        <a href="https://raw.githubusercontent.com/indraykk83/dre-design/main/puml/png/11_approval_workflow.png" target="_blank">🖼️ PNG</a>
+                        <a href="https://raw.githubusercontent.com/indraykk83/dre-design/main/puml/svg/11_approval_workflow.svg" target="_blank">📐 SVG</a>
                     </div>
                 </div>
             </div>
@@ -494,41 +537,41 @@
                 <div class="diagram-card">
                     <h3>Interactive Flows</h3>
                     <p class="desc">Rule authoring + 'Why did my pipeline fail?' diagnosis queries</p>
-                    <img src="png/33_interactive_flows_sequence.png" alt="Interactive Flows" loading="lazy">
+                    <img src="./png/33_interactive_flows_sequence.png" alt="Interactive Flows" loading="lazy" onerror="this.src='https://via.placeholder.com/800x600?text=Image+Loading...';this.onerror=null;">
                     <div class="diagram-links">
-                        <a href="33_interactive_flows_sequence.puml" target="_blank">📄 PUML Source</a>
-                        <a href="png/33_interactive_flows_sequence.png" target="_blank">🖼️ PNG</a>
-                        <a href="svg/33_interactive_flows_sequence.svg" target="_blank">📐 SVG</a>
+                        <a href="./33_interactive_flows_sequence.puml" target="_blank">📄 PUML Source</a>
+                        <a href="https://raw.githubusercontent.com/indraykk83/dre-design/main/puml/png/33_interactive_flows_sequence.png" target="_blank">🖼️ PNG</a>
+                        <a href="https://raw.githubusercontent.com/indraykk83/dre-design/main/puml/svg/33_interactive_flows_sequence.svg" target="_blank">📐 SVG</a>
                     </div>
                 </div>
                 <div class="diagram-card">
                     <h3>Async D1/D2/D3 Flows</h3>
                     <p class="desc">Scheduled detection → diagnosis → deflection loop</p>
-                    <img src="png/34_async_d1_d2_d3_flows.png" alt="Async D1/D2/D3 Flows" loading="lazy">
+                    <img src="./png/34_async_d1_d2_d3_flows.png" alt="Async D1/D2/D3 Flows" loading="lazy" onerror="this.src='https://via.placeholder.com/800x600?text=Image+Loading...';this.onerror=null;">
                     <div class="diagram-links">
-                        <a href="34_async_d1_d2_d3_flows.puml" target="_blank">📄 PUML Source</a>
-                        <a href="png/34_async_d1_d2_d3_flows.png" target="_blank">🖼️ PNG</a>
-                        <a href="svg/34_async_d1_d2_d3_flows.svg" target="_blank">📐 SVG</a>
+                        <a href="./34_async_d1_d2_d3_flows.puml" target="_blank">📄 PUML Source</a>
+                        <a href="https://raw.githubusercontent.com/indraykk83/dre-design/main/puml/png/34_async_d1_d2_d3_flows.png" target="_blank">🖼️ PNG</a>
+                        <a href="https://raw.githubusercontent.com/indraykk83/dre-design/main/puml/svg/34_async_d1_d2_d3_flows.svg" target="_blank">📐 SVG</a>
                     </div>
                 </div>
                 <div class="diagram-card">
                     <h3>Swimlane: Component Responsibilities</h3>
                     <p class="desc">Who does what? Clear separation of concerns</p>
-                    <img src="png/35_swimlane_component_responsibilities.png" alt="Swimlane: Component Responsibilities" loading="lazy">
+                    <img src="./png/35_swimlane_component_responsibilities.png" alt="Swimlane: Component Responsibilities" loading="lazy" onerror="this.src='https://via.placeholder.com/800x600?text=Image+Loading...';this.onerror=null;">
                     <div class="diagram-links">
-                        <a href="35_swimlane_component_responsibilities.puml" target="_blank">📄 PUML Source</a>
-                        <a href="png/35_swimlane_component_responsibilities.png" target="_blank">🖼️ PNG</a>
-                        <a href="svg/35_swimlane_component_responsibilities.svg" target="_blank">📐 SVG</a>
+                        <a href="./35_swimlane_component_responsibilities.puml" target="_blank">📄 PUML Source</a>
+                        <a href="https://raw.githubusercontent.com/indraykk83/dre-design/main/puml/png/35_swimlane_component_responsibilities.png" target="_blank">🖼️ PNG</a>
+                        <a href="https://raw.githubusercontent.com/indraykk83/dre-design/main/puml/svg/35_swimlane_component_responsibilities.svg" target="_blank">📐 SVG</a>
                     </div>
                 </div>
                 <div class="diagram-card">
                     <h3>End-to-End Component Interaction</h3>
                     <p class="desc">Comprehensive view: All components working together</p>
-                    <img src="png/32_end_to_end_component_interaction.png" alt="End-to-End Component Interaction" loading="lazy">
+                    <img src="./png/32_end_to_end_component_interaction.png" alt="End-to-End Component Interaction" loading="lazy" onerror="this.src='https://via.placeholder.com/800x600?text=Image+Loading...';this.onerror=null;">
                     <div class="diagram-links">
-                        <a href="32_end_to_end_component_interaction.puml" target="_blank">📄 PUML Source</a>
-                        <a href="png/32_end_to_end_component_interaction.png" target="_blank">🖼️ PNG</a>
-                        <a href="svg/32_end_to_end_component_interaction.svg" target="_blank">📐 SVG</a>
+                        <a href="./32_end_to_end_component_interaction.puml" target="_blank">📄 PUML Source</a>
+                        <a href="https://raw.githubusercontent.com/indraykk83/dre-design/main/puml/png/32_end_to_end_component_interaction.png" target="_blank">🖼️ PNG</a>
+                        <a href="https://raw.githubusercontent.com/indraykk83/dre-design/main/puml/svg/32_end_to_end_component_interaction.svg" target="_blank">📐 SVG</a>
                     </div>
                 </div>
             </div>
@@ -544,41 +587,41 @@
                 <div class="diagram-card">
                     <h3>Rule Execution (D1 Detection)</h3>
                     <p class="desc">How D1 Detection Agent runs user-defined rules on schedule</p>
-                    <img src="png/02_tech_rule_execution.png" alt="Rule Execution (D1 Detection)" loading="lazy">
+                    <img src="./png/02_tech_rule_execution.png" alt="Rule Execution (D1 Detection)" loading="lazy" onerror="this.src='https://via.placeholder.com/800x600?text=Image+Loading...';this.onerror=null;">
                     <div class="diagram-links">
-                        <a href="02_tech_rule_execution.puml" target="_blank">📄 PUML Source</a>
-                        <a href="png/02_tech_rule_execution.png" target="_blank">🖼️ PNG</a>
-                        <a href="svg/02_tech_rule_execution.svg" target="_blank">📐 SVG</a>
+                        <a href="./02_tech_rule_execution.puml" target="_blank">📄 PUML Source</a>
+                        <a href="https://raw.githubusercontent.com/indraykk83/dre-design/main/puml/png/02_tech_rule_execution.png" target="_blank">🖼️ PNG</a>
+                        <a href="https://raw.githubusercontent.com/indraykk83/dre-design/main/puml/svg/02_tech_rule_execution.svg" target="_blank">📐 SVG</a>
                     </div>
                 </div>
                 <div class="diagram-card">
                     <h3>D2 Diagnosis Flow</h3>
                     <p class="desc">Root cause analysis: Logs + Deployments + Data Drift + Incident KB</p>
-                    <img src="png/15_d2_diagnosis_flow.png" alt="D2 Diagnosis Flow" loading="lazy">
+                    <img src="./png/15_d2_diagnosis_flow.png" alt="D2 Diagnosis Flow" loading="lazy" onerror="this.src='https://via.placeholder.com/800x600?text=Image+Loading...';this.onerror=null;">
                     <div class="diagram-links">
-                        <a href="15_d2_diagnosis_flow.puml" target="_blank">📄 PUML Source</a>
-                        <a href="png/15_d2_diagnosis_flow.png" target="_blank">🖼️ PNG</a>
-                        <a href="svg/15_d2_diagnosis_flow.svg" target="_blank">📐 SVG</a>
+                        <a href="./15_d2_diagnosis_flow.puml" target="_blank">📄 PUML Source</a>
+                        <a href="https://raw.githubusercontent.com/indraykk83/dre-design/main/puml/png/15_d2_diagnosis_flow.png" target="_blank">🖼️ PNG</a>
+                        <a href="https://raw.githubusercontent.com/indraykk83/dre-design/main/puml/svg/15_d2_diagnosis_flow.svg" target="_blank">📐 SVG</a>
                     </div>
                 </div>
                 <div class="diagram-card">
                     <h3>D3 Deflection Flow</h3>
                     <p class="desc">Fix generation + Approval + Execution + Feedback loop</p>
-                    <img src="png/16_d3_deflection_flow.png" alt="D3 Deflection Flow" loading="lazy">
+                    <img src="./png/16_d3_deflection_flow.png" alt="D3 Deflection Flow" loading="lazy" onerror="this.src='https://via.placeholder.com/800x600?text=Image+Loading...';this.onerror=null;">
                     <div class="diagram-links">
-                        <a href="16_d3_deflection_flow.puml" target="_blank">📄 PUML Source</a>
-                        <a href="png/16_d3_deflection_flow.png" target="_blank">🖼️ PNG</a>
-                        <a href="svg/16_d3_deflection_flow.svg" target="_blank">📐 SVG</a>
+                        <a href="./16_d3_deflection_flow.puml" target="_blank">📄 PUML Source</a>
+                        <a href="https://raw.githubusercontent.com/indraykk83/dre-design/main/puml/png/16_d3_deflection_flow.png" target="_blank">🖼️ PNG</a>
+                        <a href="https://raw.githubusercontent.com/indraykk83/dre-design/main/puml/svg/16_d3_deflection_flow.svg" target="_blank">📐 SVG</a>
                     </div>
                 </div>
                 <div class="diagram-card">
                     <h3>Schema Change Handler</h3>
                     <p class="desc">Special case: Handling schema evolution gracefully</p>
-                    <img src="png/17_schema_change_handler.png" alt="Schema Change Handler" loading="lazy">
+                    <img src="./png/17_schema_change_handler.png" alt="Schema Change Handler" loading="lazy" onerror="this.src='https://via.placeholder.com/800x600?text=Image+Loading...';this.onerror=null;">
                     <div class="diagram-links">
-                        <a href="17_schema_change_handler.puml" target="_blank">📄 PUML Source</a>
-                        <a href="png/17_schema_change_handler.png" target="_blank">🖼️ PNG</a>
-                        <a href="svg/17_schema_change_handler.svg" target="_blank">📐 SVG</a>
+                        <a href="./17_schema_change_handler.puml" target="_blank">📄 PUML Source</a>
+                        <a href="https://raw.githubusercontent.com/indraykk83/dre-design/main/puml/png/17_schema_change_handler.png" target="_blank">🖼️ PNG</a>
+                        <a href="https://raw.githubusercontent.com/indraykk83/dre-design/main/puml/svg/17_schema_change_handler.svg" target="_blank">📐 SVG</a>
                     </div>
                 </div>
             </div>
@@ -594,51 +637,51 @@
                 <div class="diagram-card">
                     <h3>Deployment Architecture</h3>
                     <p class="desc">Infrastructure: Compute, storage, networking on Databricks</p>
-                    <img src="png/10_deployment.png" alt="Deployment Architecture" loading="lazy">
+                    <img src="./png/10_deployment.png" alt="Deployment Architecture" loading="lazy" onerror="this.src='https://via.placeholder.com/800x600?text=Image+Loading...';this.onerror=null;">
                     <div class="diagram-links">
-                        <a href="10_deployment.puml" target="_blank">📄 PUML Source</a>
-                        <a href="png/10_deployment.png" target="_blank">🖼️ PNG</a>
-                        <a href="svg/10_deployment.svg" target="_blank">📐 SVG</a>
+                        <a href="./10_deployment.puml" target="_blank">📄 PUML Source</a>
+                        <a href="https://raw.githubusercontent.com/indraykk83/dre-design/main/puml/png/10_deployment.png" target="_blank">🖼️ PNG</a>
+                        <a href="https://raw.githubusercontent.com/indraykk83/dre-design/main/puml/svg/10_deployment.svg" target="_blank">📐 SVG</a>
                     </div>
                 </div>
                 <div class="diagram-card">
                     <h3>Multi-Environment Promotion</h3>
                     <p class="desc">Dev → Staging → Prod pipeline for rule deployment</p>
-                    <img src="png/13_multi_env_promotion.png" alt="Multi-Environment Promotion" loading="lazy">
+                    <img src="./png/13_multi_env_promotion.png" alt="Multi-Environment Promotion" loading="lazy" onerror="this.src='https://via.placeholder.com/800x600?text=Image+Loading...';this.onerror=null;">
                     <div class="diagram-links">
-                        <a href="13_multi_env_promotion.puml" target="_blank">📄 PUML Source</a>
-                        <a href="png/13_multi_env_promotion.png" target="_blank">🖼️ PNG</a>
-                        <a href="svg/13_multi_env_promotion.svg" target="_blank">📐 SVG</a>
+                        <a href="./13_multi_env_promotion.puml" target="_blank">📄 PUML Source</a>
+                        <a href="https://raw.githubusercontent.com/indraykk83/dre-design/main/puml/png/13_multi_env_promotion.png" target="_blank">🖼️ PNG</a>
+                        <a href="https://raw.githubusercontent.com/indraykk83/dre-design/main/puml/svg/13_multi_env_promotion.svg" target="_blank">📐 SVG</a>
                     </div>
                 </div>
                 <div class="diagram-card">
                     <h3>Rule Health Monitoring</h3>
                     <p class="desc">Tracking rule performance, false positives, execution time</p>
-                    <img src="png/14_rule_health_monitoring.png" alt="Rule Health Monitoring" loading="lazy">
+                    <img src="./png/14_rule_health_monitoring.png" alt="Rule Health Monitoring" loading="lazy" onerror="this.src='https://via.placeholder.com/800x600?text=Image+Loading...';this.onerror=null;">
                     <div class="diagram-links">
-                        <a href="14_rule_health_monitoring.puml" target="_blank">📄 PUML Source</a>
-                        <a href="png/14_rule_health_monitoring.png" target="_blank">🖼️ PNG</a>
-                        <a href="svg/14_rule_health_monitoring.svg" target="_blank">📐 SVG</a>
+                        <a href="./14_rule_health_monitoring.puml" target="_blank">📄 PUML Source</a>
+                        <a href="https://raw.githubusercontent.com/indraykk83/dre-design/main/puml/png/14_rule_health_monitoring.png" target="_blank">🖼️ PNG</a>
+                        <a href="https://raw.githubusercontent.com/indraykk83/dre-design/main/puml/svg/14_rule_health_monitoring.svg" target="_blank">📐 SVG</a>
                     </div>
                 </div>
                 <div class="diagram-card">
                     <h3>Notification & Alerting</h3>
                     <p class="desc">How users get notified: Email, Slack, Teams, PagerDuty</p>
-                    <img src="png/12_notification_alerting.png" alt="Notification & Alerting" loading="lazy">
+                    <img src="./png/12_notification_alerting.png" alt="Notification & Alerting" loading="lazy" onerror="this.src='https://via.placeholder.com/800x600?text=Image+Loading...';this.onerror=null;">
                     <div class="diagram-links">
-                        <a href="12_notification_alerting.puml" target="_blank">📄 PUML Source</a>
-                        <a href="png/12_notification_alerting.png" target="_blank">🖼️ PNG</a>
-                        <a href="svg/12_notification_alerting.svg" target="_blank">📐 SVG</a>
+                        <a href="./12_notification_alerting.puml" target="_blank">📄 PUML Source</a>
+                        <a href="https://raw.githubusercontent.com/indraykk83/dre-design/main/puml/png/12_notification_alerting.png" target="_blank">🖼️ PNG</a>
+                        <a href="https://raw.githubusercontent.com/indraykk83/dre-design/main/puml/svg/12_notification_alerting.svg" target="_blank">📐 SVG</a>
                     </div>
                 </div>
                 <div class="diagram-card">
                     <h3>Operating Excellence Framework</h3>
                     <p class="desc">SLAs, SLOs, error budgets, incident management</p>
-                    <img src="png/26_operating_excellence_framework.png" alt="Operating Excellence Framework" loading="lazy">
+                    <img src="./png/26_operating_excellence_framework.png" alt="Operating Excellence Framework" loading="lazy" onerror="this.src='https://via.placeholder.com/800x600?text=Image+Loading...';this.onerror=null;">
                     <div class="diagram-links">
-                        <a href="26_operating_excellence_framework.puml" target="_blank">📄 PUML Source</a>
-                        <a href="png/26_operating_excellence_framework.png" target="_blank">🖼️ PNG</a>
-                        <a href="svg/26_operating_excellence_framework.svg" target="_blank">📐 SVG</a>
+                        <a href="./26_operating_excellence_framework.puml" target="_blank">📄 PUML Source</a>
+                        <a href="https://raw.githubusercontent.com/indraykk83/dre-design/main/puml/png/26_operating_excellence_framework.png" target="_blank">🖼️ PNG</a>
+                        <a href="https://raw.githubusercontent.com/indraykk83/dre-design/main/puml/svg/26_operating_excellence_framework.svg" target="_blank">📐 SVG</a>
                     </div>
                 </div>
             </div>
@@ -654,11 +697,11 @@
                 <div class="diagram-card">
                     <h3>LLM Cost Optimization</h3>
                     <p class="desc">Caching, batching, model selection, prompt engineering</p>
-                    <img src="png/36_llm_cost_optimisation.png" alt="LLM Cost Optimization" loading="lazy">
+                    <img src="./png/36_llm_cost_optimisation.png" alt="LLM Cost Optimization" loading="lazy" onerror="this.src='https://via.placeholder.com/800x600?text=Image+Loading...';this.onerror=null;">
                     <div class="diagram-links">
-                        <a href="36_llm_cost_optimisation.puml" target="_blank">📄 PUML Source</a>
-                        <a href="png/36_llm_cost_optimisation.png" target="_blank">🖼️ PNG</a>
-                        <a href="svg/36_llm_cost_optimisation.svg" target="_blank">📐 SVG</a>
+                        <a href="./36_llm_cost_optimisation.puml" target="_blank">📄 PUML Source</a>
+                        <a href="https://raw.githubusercontent.com/indraykk83/dre-design/main/puml/png/36_llm_cost_optimisation.png" target="_blank">🖼️ PNG</a>
+                        <a href="https://raw.githubusercontent.com/indraykk83/dre-design/main/puml/svg/36_llm_cost_optimisation.svg" target="_blank">📐 SVG</a>
                     </div>
                 </div>
             </div>
@@ -674,21 +717,21 @@
                 <div class="diagram-card">
                     <h3>Architecture Compliance Strategy</h3>
                     <p class="desc">How we keep PUML diagrams in sync with code</p>
-                    <img src="png/23_arch_compliance_strategy.png" alt="Architecture Compliance Strategy" loading="lazy">
+                    <img src="./png/23_arch_compliance_strategy.png" alt="Architecture Compliance Strategy" loading="lazy" onerror="this.src='https://via.placeholder.com/800x600?text=Image+Loading...';this.onerror=null;">
                     <div class="diagram-links">
-                        <a href="23_arch_compliance_strategy.puml" target="_blank">📄 PUML Source</a>
-                        <a href="png/23_arch_compliance_strategy.png" target="_blank">🖼️ PNG</a>
-                        <a href="svg/23_arch_compliance_strategy.svg" target="_blank">📐 SVG</a>
+                        <a href="./23_arch_compliance_strategy.puml" target="_blank">📄 PUML Source</a>
+                        <a href="https://raw.githubusercontent.com/indraykk83/dre-design/main/puml/png/23_arch_compliance_strategy.png" target="_blank">🖼️ PNG</a>
+                        <a href="https://raw.githubusercontent.com/indraykk83/dre-design/main/puml/svg/23_arch_compliance_strategy.svg" target="_blank">📐 SVG</a>
                     </div>
                 </div>
                 <div class="diagram-card">
                     <h3>Implementation Roadmap</h3>
                     <p class="desc">Phase 1 (Foundation) → Phase 2 (Intelligence) → Phase 3 (Autonomy)</p>
-                    <img src="png/22_implementation_roadmap.png" alt="Implementation Roadmap" loading="lazy">
+                    <img src="./png/22_implementation_roadmap.png" alt="Implementation Roadmap" loading="lazy" onerror="this.src='https://via.placeholder.com/800x600?text=Image+Loading...';this.onerror=null;">
                     <div class="diagram-links">
-                        <a href="22_implementation_roadmap.puml" target="_blank">📄 PUML Source</a>
-                        <a href="png/22_implementation_roadmap.png" target="_blank">🖼️ PNG</a>
-                        <a href="svg/22_implementation_roadmap.svg" target="_blank">📐 SVG</a>
+                        <a href="./22_implementation_roadmap.puml" target="_blank">📄 PUML Source</a>
+                        <a href="https://raw.githubusercontent.com/indraykk83/dre-design/main/puml/png/22_implementation_roadmap.png" target="_blank">🖼️ PNG</a>
+                        <a href="https://raw.githubusercontent.com/indraykk83/dre-design/main/puml/svg/22_implementation_roadmap.svg" target="_blank">📐 SVG</a>
                     </div>
                 </div>
             </div>
